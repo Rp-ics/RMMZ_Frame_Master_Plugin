@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FrameMaster MZ — Visual Animation Editor</title>
+<style>
+  :root {
+    --bg: #1b1e26; --panel: #242832; --panel2: #2c313d; --line: #3a4150;
+    --txt: #e8eaf0; --dim: #9aa3b5; --acc: #6ea8fe; --acc2: #4c7dd9;
+    --ok: #57c785; --warn: #e5a54b; --err: #e56a6a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt);
+    font: 13px/1.45 "Segoe UI", system-ui, sans-serif; height: 100vh;
+    display: flex; flex-direction: column; overflow: hidden; }
+  header { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; white-space: nowrap; }
+  header h1 small { color: var(--dim); font-weight: normal; }
+  button, select, input[type=text], input[type=number] {
+    background: var(--panel2); color: var(--txt); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 9px; font-size: 12.5px; }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--acc); }
+  button.primary { background: var(--acc2); border-color: var(--acc2); color: #fff; }
+  button.danger { border-color: var(--err); color: var(--err); }
+  button:disabled { opacity: .45; cursor: default; }
+  #saveState { font-size: 12px; color: var(--dim); }
+  #saveState.ok { color: var(--ok); } #saveState.err { color: var(--err); }
+  main { flex: 1; display: grid; grid-template-columns: 250px 1fr 300px;
+    min-height: 0; }
+  aside, section { overflow-y: auto; padding: 10px; }
+  aside { background: var(--panel); }
+  #leftPanel { border-right: 1px solid var(--line); }
+  #rightPanel { border-left: 1px solid var(--line); }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--dim); margin: 12px 0 6px; }
+  h2:first-child { margin-top: 0; }
+  .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+  .row label { color: var(--dim); min-width: 92px; }
+  .row input[type=text], .row input[type=number], .row select { flex: 1; min-width: 0; }
+  .hint { color: var(--dim); font-size: 11.5px; }
+  /* preview */
+  #previewWrap { background: #101319; border: 1px solid var(--line); border-radius: 8px;
+    position: relative; height: 300px; display: flex; align-items: flex-end;
+    justify-content: center; overflow: hidden;
+    background-image: linear-gradient(45deg, #181c25 25%, transparent 25%),
+      linear-gradient(-45deg, #181c25 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #181c25 75%),
+      linear-gradient(-45deg, transparent 75%, #181c25 75%);
+    background-size: 24px 24px; background-position: 0 0, 0 12px, 12px -12px, -12px 0; }
+  #previewImg { image-rendering: pixelated; max-height: 92%; }
+  #ground { position: absolute; bottom: 14px; width: 120px; height: 22px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,.55), transparent 70%);
+    display: none; }
+  #previewBar { display: flex; gap: 6px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  #frameLabel { color: var(--dim); min-width: 120px; }
+  /* timeline */
+  #timeline { display: flex; gap: 6px; overflow-x: auto; padding: 8px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    min-height: 118px; }
+  .thumb { position: relative; flex: 0 0 auto; border: 2px solid var(--line);
+    border-radius: 6px; background: #101319; cursor: grab; text-align: center;
+    padding: 3px; user-select: none; }
+  .thumb img { display: block; image-rendering: pixelated; height: 64px;
+    margin: 0 auto; pointer-events: none; }
+  .thumb .cap { font-size: 10.5px; color: var(--dim); pointer-events: none; }
+  .thumb.sel { border-color: var(--acc); }
+  .thumb .ev { position: absolute; top: 2px; right: 4px; font-size: 12px; pointer-events: none; }
+  .thumb.dragging { opacity: .4; }
+  #batchBar { display: flex; gap: 6px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  /* import grid */
+  #importGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 6px; max-height: 260px; overflow-y: auto; }
+  #importGrid img { width: 100%; height: 56px; object-fit: contain;
+    background: #101319; border: 1px solid var(--line); border-radius: 4px;
+    cursor: pointer; image-rendering: pixelated; }
+  #importGrid img:hover { border-color: var(--acc); }
+  #sheetPreview { max-width: 100%; border: 1px solid var(--line); border-radius: 6px;
+    image-rendering: pixelated; }
+  .evRow { border: 1px solid var(--line); border-radius: 6px; padding: 6px;
+    margin: 6px 0; background: var(--panel2); font-size: 12px; }
+  .evRow .row label { min-width: 52px; }
+  #toasts { position: fixed; bottom: 12px; right: 12px; display: flex;
+    flex-direction: column; gap: 6px; z-index: 50; }
+  .toast { background: var(--panel2); border: 1px solid var(--acc);
+    padding: 8px 12px; border-radius: 8px; max-width: 340px; }
+  .toast.ok { border-color: var(--ok); } .toast.err { border-color: var(--err); }
+  [title] { cursor: help; }
+</style>
+</head>
+<body>
+<header>
+  <h1>FrameMaster MZ <small>visual animation editor</small></h1>
+  <button id="btnFolder" class="primary" title="Open your RPG Maker MZ project folder (needs Chrome or Edge for auto-save)">Open project folder…</button>
+  <select id="animSelect" title="Current animation"></select>
+  <button id="btnNew" title="Create a new empty animation">+ New</button>
+  <button id="btnDup" title="Duplicate the current animation">Duplicate</button>
+  <button id="btnDel" class="danger" title="Delete the current animation file">Delete</button>
+  <button id="btnExport" title="Download the current animation JSON (fallback when auto-save is unavailable)">Export JSON</button>
+  <a href="https://rpxgames.win/tools/framemaster/" title="Open the online Animation Forge (same editor + downloadable project pack + GIF/sheet export)" style="font-size:12px;color:var(--acc)">Online forge ↗</a>
+  <span id="saveState">No project folder open.</span>
+</header>
+<main>
+  <!-- LEFT: import -->
+  <aside id="leftPanel">
+    <h2>Import frames</h2>
+    <div class="row">
+      <button id="btnAddSelected" class="primary" title="Append every PNG found in img/framemaster/ as frames, sorted by file name">Add all PNGs as frames</button>
+    </div>
+    <p class="hint">Reads <b>img/framemaster/</b> from the opened project folder. Files are sorted by name. Or pick loose files:</p>
+    <div class="row"><input type="file" id="fileInput" accept="image/png" multiple></div>
+    <div id="importGrid"></div>
+    <h2>Sprite sheet slicer</h2>
+    <div class="row"><label title="PNG inside img/framemaster/ used as the sheet">Sheet file</label><select id="sheetSelect"></select></div>
+    <div class="row"><label title="Width of one frame in pixels">Frame width</label><input type="number" id="sheetW" value="48" min="1" max="2048"></div>
+    <div class="row"><label title="Height of one frame in pixels">Frame height</label><input type="number" id="sheetH" value="48" min="1" max="2048"></div>
+    <div class="row"><label title="Skip empty leading cells">Skip cells</label><input type="number" id="sheetSkip" value="0" min="0" max="4096"></div>
+    <div class="row">
+      <button id="btnSlicePreview" title="Show the slicing grid over the sheet">Preview grid</button>
+      <button id="btnSlice" class="primary" title="Append one frame per grid cell">Slice → append</button>
+    </div>
+    <img id="sheetPreview" alt="">
+    <p class="hint" id="sheetInfo"></p>
+  </aside>
+
+  <!-- CENTER: preview + timeline -->
+  <section id="centerPanel">
+    <h2>Preview <span class="hint">— live playback of the current animation</span></h2>
+    <div id="previewWrap" title="Live animation preview">
+      <div id="ground"></div>
+      <img id="previewImg" alt="">
+    </div>
+    <div id="previewBar">
+      <button id="btnPlay" class="primary" title="Play / pause (Space)">Pause</button>
+      <button id="btnStepBack" title="Previous frame">◀</button>
+      <button id="btnStepFwd" title="Next frame">▶</button>
+      <label class="hint" title="Playback speed multiplier">Speed <input type="number" id="speedMul" value="1" min="0.1" max="4" step="0.25" style="width:64px"></label>
+      <label class="hint" title="Show a fake ground shadow like on the map"><input type="checkbox" id="chkGround" checked> map grounding</label>
+      <span id="frameLabel"></span>
+    </div>
+    <h2>Timeline <span class="hint">— drag to reorder · click to select · Ctrl-click / Shift-click for multi-select</span></h2>
+    <div id="timeline"></div>
+    <div id="batchBar">
+      <span class="hint">Selected: <b id="selCount">0</b></span>
+      <label class="hint" title="Apply one duration to every selected frame">Duration <input type="number" id="batchDur" value="6" min="1" max="36000" style="width:70px"> f</label>
+      <button id="btnBatchDur" title="Set the duration on all selected frames">Apply to selected</button>
+      <button id="btnBatchClearEv" title="Remove all frame events from selected frames">Clear events</button>
+      <button id="btnBatchDel" class="danger" title="Delete all selected frames">Delete selected</button>
+    </div>
+  </section>
+
+  <!-- RIGHT: properties -->
+  <aside id="rightPanel">
+    <h2>Animation properties</h2>
+    <div class="row"><label title="Display name">Name</label><input type="text" id="propName"></div>
+    <div class="row"><label title="Letters, digits and underscore only; used by Plugin Commands">ID (slug)</label><input type="text" id="propId"></div>
+    <div class="row"><label title="Restart automatically after the last frame">Loop</label><input type="checkbox" id="propLoop"></div>
+    <div class="row"><label title="When looping, resume from this frame">Loop from</label><input type="number" id="propLoopFrom" value="0" min="0"></div>
+    <div class="row"><label title="Normal: 0,1,2…restart · Ping-pong: 0,1,2…1,0… · Random: shuffled">Loop mode</label>
+      <select id="propLoopMode">
+        <option value="normal">Normal loop (1,2,3…)</option>
+        <option value="pingpong">Forwards + backwards (1,2,3,2,1…)</option>
+        <option value="random">Random (shuffled)</option>
+      </select>
+    </div>
+    <div class="row"><label title="Global speed multiplier for this animation">Base speed</label><input type="number" id="propBaseSpeed" value="1" min="0.1" max="8" step="0.1"></div>
+    <div class="row"><label title="Pivot point, like a Godot offset">Anchor</label>
+      <select id="propAnchor">
+        <option value="0.5,1">Bottom-center (map chars)</option>
+        <option value="0.5,0.5">Center</option>
+        <option value="0.5,0">Top-center</option>
+      </select>
+    </div>
+    <h2>Selected frame</h2>
+    <div id="frameProps"><p class="hint">Select a frame in the timeline.</p></div>
+    <h2>Frame events <span class="hint">— fired when the frame shows</span></h2>
+    <div class="row">
+      <button id="btnAddSe" title="Play a sound effect on this frame">+ SE</button>
+      <button id="btnAddCe" title="Reserve a common event on this frame">+ Common Event</button>
+      <button id="btnAddSw" title="Flip a game switch on this frame">+ Switch</button>
+    </div>
+    <div id="eventList"></div>
+  </aside>
+</main>
+<div id="toasts"></div>
+
+<script>
+"use strict";
+/* ============================================================================
+ * FrameMaster MZ — standalone visual editor (no dependencies, no build step).
+ * Storage: File System Access API (Chromium) for true auto-save into the
+ * project folder; everywhere else: read via <input> + download-JSON export.
+ * Schema contract shared with FrameMaster.js: fmSanitize* duplicated here.
+ * ========================================================================== */
+
+const $ = (id) => document.getElementById(id);
+const state = {
+  dirHandle: null, canWrite: false,
+  imgFiles: [],            // [{name, file|blob, url, w, h}]
+  anims: [],               // [{id, name, file, data}]
+  current: null,           // current anim entry
+  selected: new Set(),     // selected frame indexes
+  playing: true, speed: 1,
+  playIdx: 0, playAcc: 0, playDir: 1, lastTick: 0,
+};
+
+// ---------------- toasts ----------------
+function toast(msg, kind) {
+  const box = $("toasts");
+  const el = document.createElement("div");
+  el.className = "toast" + (kind ? " " + kind : "");
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(() => el.remove(), 4500);
+  while (box.children.length > 4) box.firstChild.remove();
+}
+function setSave(msg, cls) {
+  const el = $("saveState");
+  el.textContent = msg;
+  el.className = cls || "";
+}
+
+// ---------------- schema ----------------
+function clampInt(v, min, max, fb) {
+  const n = Math.floor(Number(v));
+  if (!isFinite(n)) return fb;
+  return Math.min(max, Math.max(min, n));
+}
+function sanitizeEvent(ev) {
+  if (!ev || typeof ev !== "object") return null;
+  if (ev.type === "se") {
+    const name = String((ev.se || {}).name || "");
+    if (!name) return null;
+    return { type: "se", se: {
+      name, volume: clampInt(ev.se.volume, 0, 100, 90),
+      pitch: clampInt(ev.se.pitch, 50, 150, 100),
+      pan: clampInt(ev.se.pan, -100, 100, 0) } };
+  }
+  if (ev.type === "commonEvent") {
+    const id = clampInt(ev.id, 1, 9999, 0);
+    return id > 0 ? { type: "commonEvent", id } : null;
+  }
+  if (ev.type === "switch") {
+    const id = clampInt(ev.id, 1, 9999, 0);
+    return id > 0 ? { type: "switch", id, value: !!ev.value } : null;
+  }
+  return null;
+}
+function sanitizeFrame(f) {
+  if (!f || typeof f !== "object") return null;
+  const source = String(f.source || "").trim();
+  const img = String(f.img || "").trim();
+  const file = (source || img).replace(/^.*[\\/]/, "");
+  if (!file) return null;
+  let rect = null;
+  if (f.rect && typeof f.rect === "object") {
+    const w = clampInt(f.rect.w, 1, 8192, 0), h = clampInt(f.rect.h, 1, 8192, 0);
+    if (w > 0 && h > 0) rect = { x: clampInt(f.rect.x, 0, 8192, 0), y: clampInt(f.rect.y, 0, 8192, 0), w, h };
+  }
+  return { img: file, source: source ? file : null, rect,
+    duration: clampInt(f.duration, 1, 36000, 6),
+    events: Array.isArray(f.events) ? f.events.map(sanitizeEvent).filter(Boolean) : [] };
+}
+function blankAnim(id, name) {
+  return { id, name: name || id, version: 1, loop: true, loopFrom: 0, loopMode: "normal",
+    baseSpeed: 1.0, anchorX: 0.5, anchorY: 1.0, frames: [] };
+}
+function sanitizeAnim(raw) {
+  if (!raw || typeof raw !== "object" || !/^[A-Za-z0-9_]+$/.test(String(raw.id || ""))) return null;
+  const frames = (Array.isArray(raw.frames) ? raw.frames : []).map(sanitizeFrame).filter(Boolean);
+  return { id: String(raw.id), name: String(raw.name || raw.id), version: 1,
+    loop: raw.loop !== false, loopFrom: clampInt(raw.loopFrom, 0, Math.max(0, frames.length - 1), 0),
+    loopMode: (raw.loopMode === "pingpong" || raw.loopMode === "random") ? raw.loopMode : "normal",
+    baseSpeed: Math.min(8, Math.max(0.1, Number(raw.baseSpeed) || 1)),
+    anchorX: 0.5, anchorY: 1.0,
+    ...(String(raw.anchorX) !== "" && isFinite(Number(raw.anchorX)) ? { anchorX: Math.min(1, Math.max(0, Number(raw.anchorX))) } : {}),
+    ...(String(raw.anchorY) !== "" && isFinite(Number(raw.anchorY)) ? { anchorY: Math.min(1, Math.max(0, Number(raw.anchorY))) } : {}),
+    frames };
+}
+function slugify(name) {
+  return String(name || "anim").toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "") || "anim";
+}
+
+// ---------------- project folder ----------------
+async function openFolder() {
+  if (!window.showDirectoryPicker) {
+    toast("This browser cannot open folders. Use Chrome/Edge, or use file pickers + Export JSON.", "err");
+    return;
+  }
+  try {
+    const dir = await window.showDirectoryPicker({ mode: "readwrite" });
+    state.dirHandle = dir;
+    // Verify it looks like an MZ project (best effort).
+    try { await dir.getDirectoryHandle("img"); state.canWrite = true; }
+    catch (e) { state.canWrite = false; }
+    await ensureFmDirs();
+    await refreshProject();
+    setSave(state.canWrite ? "Auto-save ON — project folder connected." : "Read-only: folder is not an MZ project?", state.canWrite ? "ok" : "err");
+    toast(state.canWrite ? "Project folder connected. Auto-save is ON." : "Folder opened read-only.", state.canWrite ? "ok" : "err");
+  } catch (e) {
+    if (e && e.name !== "AbortError") toast("Could not open folder: " + e.message, "err");
+  }
+}
+async function ensureFmDirs() {
+  try {
+    const data = await state.dirHandle.getDirectoryHandle("data", { create: true });
+    await data.getDirectoryHandle("framemaster", { create: true });
+    const img = await state.dirHandle.getDirectoryHandle("img", { create: true });
+    await img.getDirectoryHandle("framemaster", { create: true });
+  } catch (e) { /* read-only fallback */ }
+}
+async function readDirFiles(sub1, sub2, filter) {
+  const out = [];
+  try {
+    const d1 = await state.dirHandle.getDirectoryHandle(sub1);
+    const d2 = await d1.getDirectoryHandle(sub2);
+    for await (const entry of d2.values()) {
+      if (entry.kind === "file" && filter(entry.name)) out.push(entry);
+    }
+  } catch (e) { /* missing dir */ }
+  return out;
+}
+async function writeTextFile(sub1, sub2, name, text) {
+  const d1 = await state.dirHandle.getDirectoryHandle(sub1);
+  const d2 = await d1.getDirectoryHandle(sub2);
+  const fh = await d2.getFileHandle(name, { create: true });
+  const w = await fh.createWritable();
+  await w.write(text);
+  await w.close();
+}
+async function refreshProject() {
+  // images
+  state.imgFiles = [];
+  const entries = await readDirFiles("img", "framemaster", n => /\.png$/i.test(n));
+  entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  for (const e of entries) {
+    try {
+      const file = await e.getFile();
+      const url = URL.createObjectURL(file);
+      const size = await probeSize(url);
+      state.imgFiles.push({ name: e.name, blob: file, url, w: size.w, h: size.h });
+    } catch (err) { /* skip unreadable */ }
+  }
+  renderImportGrid();
+  renderSheetSelect();
+  // animations
+  state.anims = [];
+  const jsons = await readDirFiles("data", "framemaster", n => n !== "FM_Animations.json" && /\.json$/i.test(n));
+  for (const e of jsons) {
+    try {
+      const file = await e.getFile();
+      const raw = JSON.parse(await file.text());
+      const clean = sanitizeAnim(raw);
+      if (clean) state.anims.push({ id: clean.id, name: clean.name, file: e.name, data: clean });
+    } catch (err) { toast("Skipped invalid file: " + e.name, "err"); }
+  }
+  // registry may reference files; adopt orphans too
+  try {
+    const reg = await readDirFiles("data", "framemaster", n => n === "FM_Animations.json");
+    if (reg.length) {
+      const file = await reg[0].getFile();
+      const list = JSON.parse(await file.text());
+      const arr = Array.isArray(list) ? list : list.animations || [];
+      for (const r of arr) {
+        if (r && r.file && !state.anims.some(a => a.file === r.file)) {
+          try {
+            const d1 = await state.dirHandle.getDirectoryHandle("data");
+            const d2 = await d1.getDirectoryHandle("framemaster");
+            const fh = await d2.getFileHandle(r.file);
+            const raw = JSON.parse(await (await fh.getFile()).text());
+            const clean = sanitizeAnim(raw);
+            if (clean) state.anims.push({ id: clean.id, name: clean.name, file: r.file, data: clean });
+          } catch (err) { /* missing file, ignore */ }
+        }
+      }
+    }
+  } catch (err) { /* no registry yet */ }
+  state.anims.sort((a, b) => a.id.localeCompare(b.id));
+  if (!state.current || !state.anims.some(a => a.id === state.current.id)) {
+    state.current = state.anims[0] || null;
+  }
+  state.selected.clear();
+  state.playIdx = 0; state.playAcc = 0;
+  renderAnimSelect();
+  renderAll();
+}
+function probeSize(url) {
+  return new Promise(res => {
+    const im = new Image();
+    im.onload = () => res({ w: im.naturalWidth, h: im.naturalHeight });
+    im.onerror = () => res({ w: 0, h: 0 });
+    im.src = url;
+  });
+}
+
+// ---------------- rendering ----------------
+function cur() { return state.current ? state.current.data : null; }
+function imgUrlFor(frame) {
+  if (!frame) return "";
+  const want = (frame.source || frame.img || "").toLowerCase();
+  const hit = state.imgFiles.find(f => f.name.toLowerCase() === want);
+  if (hit) return { url: hit.url, crop: frame.rect };
+  // loose-file fallback: match object URLs created from <input>
+  const loose = state.imgFiles.find(f => f.name === frame.img && f.url);
+  return loose ? { url: loose.url, crop: frame.rect } : { url: "", crop: null };
+}
+function renderAnimSelect() {
+  const sel = $("animSelect");
+  sel.innerHTML = "";
+  if (!state.anims.length) {
+    const o = document.createElement("option");
+    o.textContent = "(no animations — click + New)";
+    sel.appendChild(o);
+  }
+  for (const a of state.anims) {
+    const o = document.createElement("option");
+    o.value = a.id;
+    o.textContent = a.data.name + "  [" + a.id + ", " + a.data.frames.length + "f]";
+    if (state.current && a.id === state.current.id) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+function renderImportGrid() {
+  const g = $("importGrid");
+  g.innerHTML = "";
+  for (const f of state.imgFiles) {
+    const im = document.createElement("img");
+    im.src = f.url; im.title = f.name + " (" + f.w + "×" + f.h + ") — click to append as frame";
+    im.onclick = () => { appendFrame({ img: f.name, rect: null }); };
+    g.appendChild(im);
+  }
+  if (!state.imgFiles.length) g.innerHTML = "<p class='hint'>No PNGs in img/framemaster/ yet.</p>";
+}
+function renderSheetSelect() {
+  const s = $("sheetSelect");
+  s.innerHTML = "";
+  for (const f of state.imgFiles) {
+    const o = document.createElement("option");
+    o.value = f.name; o.textContent = f.name + " (" + f.w + "×" + f.h + ")";
+    s.appendChild(o);
+  }
+}
+function renderProps() {
+  const a = cur();
+  if (!a) {
+    $("propName").value = ""; $("propId").value = "";
+    $("frameProps").innerHTML = "<p class='hint'>No animation.</p>";
+    $("eventList").innerHTML = "";
+    return;
+  }
+  if (document.activeElement !== $("propName")) $("propName").value = a.name;
+  if (document.activeElement !== $("propId")) $("propId").value = a.id;
+  $("propLoop").checked = !!a.loop;
+  $("propLoopFrom").value = a.loopFrom;
+  $("propLoopFrom").max = Math.max(0, a.frames.length - 1);
+  $("propLoopMode").value = a.loopMode || "normal";
+  $("propBaseSpeed").value = a.baseSpeed;
+  $("propAnchor").value = a.anchorX + "," + a.anchorY;
+  renderFrameProps();
+  renderEvents();
+}
+function renderTimeline() {
+  const a = cur();
+  const tl = $("timeline");
+  tl.innerHTML = "";
+  if (!a || !a.frames.length) {
+    tl.innerHTML = "<p class='hint' style='padding:10px'>Empty — add PNGs from the left panel or slice a sheet.</p>";
+  }
+  if (a) a.frames.forEach((f, i) => {
+    const d = document.createElement("div");
+    d.className = "thumb" + (state.selected.has(i) ? " sel" : "");
+    d.draggable = true;
+    d.dataset.idx = i;
+    const src = imgUrlFor(f);
+    const im = document.createElement("img");
+    if (src.url) {
+      if (src.crop) {
+        im.src = src.url + "#xywh=" + src.crop.x + "," + src.crop.y + "," + src.crop.w + "," + src.crop.h;
+      } else im.src = src.url;
+      // Rough crop preview: object-position trick needs real cropping; use full img + label.
+      im.title = (f.source || f.img) + (f.rect ? " [" + f.rect.x + "," + f.rect.y + " " + f.rect.w + "×" + f.rect.h + "]" : "");
+    } else {
+      im.alt = f.source || f.img;
+      im.title = "Image not found in img/framemaster/: " + (f.source || f.img);
+    }
+    // Show sheet-cell crop via CSS clip when possible.
+    if (src.url && src.crop) {
+      im.style.cssText = "height:64px;";
+      im.onload = null;
+    }
+    const cap = document.createElement("div");
+    cap.className = "cap";
+    cap.textContent = "#" + i + " · " + f.duration + "f";
+    d.appendChild(im); d.appendChild(cap);
+    if (f.events.length) {
+      const b = document.createElement("span");
+      b.className = "ev"; b.textContent = "⚡";
+      b.title = f.events.length + " event(s)";
+      d.appendChild(b);
+    }
+    d.onclick = (e) => onThumbClick(e, i);
+    d.ondragstart = (e) => { d.classList.add("dragging"); e.dataTransfer.setData("text/plain", String(i)); };
+    d.ondragend = () => d.classList.remove("dragging");
+    d.ondragover = (e) => e.preventDefault();
+    d.ondrop = (e) => {
+      e.preventDefault();
+      const from = Number(e.dataTransfer.getData("text/plain"));
+      moveFrame(from, i);
+    };
+    tl.appendChild(d);
+  });
+  $("selCount").textContent = state.selected.size;
+}
+function renderFrameProps() {
+  const a = cur();
+  const box = $("frameProps");
+  const idx = [...state.selected].sort((x, y) => x - y)[0];
+  if (!a || idx === undefined || !a.frames[idx]) {
+    box.innerHTML = "<p class='hint'>Select a frame in the timeline.</p>";
+    return;
+  }
+  const f = a.frames[idx];
+  box.innerHTML = "";
+  const mk = (label, input) => {
+    const r = document.createElement("div"); r.className = "row";
+    const l = document.createElement("label"); l.textContent = label;
+    r.appendChild(l); r.appendChild(input); box.appendChild(r);
+    return r;
+  };
+  const dur = document.createElement("input");
+  dur.type = "number"; dur.min = 1; dur.max = 36000; dur.value = f.duration;
+  dur.title = "Duration in game frames (60 = 1 second)";
+  dur.onchange = () => { f.duration = clampInt(dur.value, 1, 36000, 6); markDirty(); renderTimeline(); renderFrameProps(); };
+  mk("Duration (f)", dur);
+  const ms = document.createElement("input");
+  ms.type = "number"; ms.min = 17; ms.value = Math.round(f.duration * 1000 / 60);
+  ms.title = "Same duration in milliseconds";
+  ms.onchange = () => { f.duration = clampInt(Math.round(Number(ms.value) * 60 / 1000), 1, 36000, 6); markDirty(); renderTimeline(); renderFrameProps(); };
+  mk("Duration (ms)", ms);
+  const file = document.createElement("select");
+  const files = [...new Set(state.imgFiles.map(x => x.name))];
+  if (f.source || !files.includes(f.img)) {
+    const o = document.createElement("option");
+    o.value = f.source || f.img; o.textContent = (f.source || f.img) + (f.rect ? " [sheet]" : "") + " (current)";
+    file.appendChild(o);
+  }
+  for (const n of files) {
+    const o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    if (!f.rect && f.img === n) o.selected = true;
+    file.appendChild(o);
+  }
+  file.title = "Replace this frame's image (single PNGs; sheet cells keep their rect)";
+  file.onchange = () => {
+    if (f.rect) { f.source = file.value; }
+    else { f.img = file.value; f.source = null; }
+    markDirty(); renderTimeline();
+  };
+  mk("Image", file);
+  const info = document.createElement("p");
+  info.className = "hint";
+  info.textContent = f.rect
+    ? "Sheet cell: " + f.source + " @ " + f.rect.x + "," + f.rect.y + " " + f.rect.w + "×" + f.rect.h
+    : "Single PNG: " + f.img;
+  box.appendChild(info);
+}
+function renderEvents() {
+  const a = cur();
+  const box = $("eventList");
+  box.innerHTML = "";
+  const idx = [...state.selected].sort((x, y) => x - y)[0];
+  if (!a || idx === undefined || !a.frames[idx]) {
+    box.innerHTML = "<p class='hint'>Frame events appear here.</p>";
+    return;
+  }
+  const f = a.frames[idx];
+  if (!f.events.length) box.innerHTML = "<p class='hint'>No events on frame #" + idx + ".</p>";
+  f.events.forEach((ev, ei) => {
+    const row = document.createElement("div");
+    row.className = "evRow";
+    const title = document.createElement("div");
+    title.innerHTML = "<b>" + (ev.type === "se" ? "🔊 SE" : ev.type === "commonEvent" ? "📜 Common Event" : "🚩 Switch") + "</b>";
+    row.appendChild(title);
+    const mkNum = (label, val, min, max, cb, step) => {
+      const r = document.createElement("div"); r.className = "row";
+      const l = document.createElement("label"); l.textContent = label;
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.value = val; inp.min = min; inp.max = max;
+      if (step) inp.step = step;
+      inp.onchange = () => { cb(Number(inp.value)); markDirty(); };
+      r.appendChild(l); r.appendChild(inp); row.appendChild(r);
+      return inp;
+    };
+    const mkText = (label, val, cb) => {
+      const r = document.createElement("div"); r.className = "row";
+      const l = document.createElement("label"); l.textContent = label;
+      const inp = document.createElement("input");
+      inp.type = "text"; inp.value = val;
+      inp.onchange = () => { cb(inp.value); markDirty(); };
+      r.appendChild(l); r.appendChild(inp); row.appendChild(r);
+    };
+    if (ev.type === "se") {
+      mkText("SE name", ev.se.name, v => ev.se.name = v.trim());
+      mkNum("Volume", ev.se.volume, 0, 100, v => ev.se.volume = clampInt(v, 0, 100, 90));
+      mkNum("Pitch", ev.se.pitch, 50, 150, v => ev.se.pitch = clampInt(v, 50, 150, 100));
+      mkNum("Pan", ev.se.pan, -100, 100, v => ev.se.pan = clampInt(v, -100, 100, 0));
+    } else if (ev.type === "commonEvent") {
+      mkNum("Event ID", ev.id, 1, 9999, v => ev.id = clampInt(v, 1, 9999, ev.id));
+    } else if (ev.type === "switch") {
+      mkNum("Switch", ev.id, 1, 9999, v => ev.id = clampInt(v, 1, 9999, ev.id));
+      const r = document.createElement("div"); r.className = "row";
+      const l = document.createElement("label"); l.textContent = "Value";
+      const c = document.createElement("input");
+      c.type = "checkbox"; c.checked = !!ev.value;
+      c.onchange = () => { ev.value = c.checked; markDirty(); };
+      r.appendChild(l); r.appendChild(c); row.appendChild(r);
+    }
+    const del = document.createElement("button");
+    del.textContent = "Remove"; del.className = "danger";
+    del.onclick = () => { f.events.splice(ei, 1); markDirty(); renderEvents(); renderTimeline(); };
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+function renderAll() { renderProps(); renderTimeline(); }
+
+// ---------------- selection & editing ----------------
+function onThumbClick(e, i) {
+  const a = cur();
+  if (!a) return;
+  if (e.ctrlKey || e.metaKey) {
+    if (state.selected.has(i)) state.selected.delete(i);
+    else state.selected.add(i);
+  } else if (e.shiftKey && state.selected.size) {
+    const arr = [...state.selected].sort((x, y) => x - y);
+    const lo = Math.min(arr[0], i), hi = Math.max(arr[arr.length - 1], i);
+    state.selected.clear();
+    for (let k = lo; k <= hi; k++) state.selected.add(k);
+  } else {
+    state.selected.clear();
+    state.selected.add(i);
+  }
+  state.playIdx = i; state.playAcc = 0;
+  renderTimeline(); renderFrameProps(); renderEvents();
+}
+function appendFrame(f) {
+  const a = cur();
+  if (!a) { toast("Create an animation first (+ New).", "err"); return; }
+  const clean = sanitizeFrame({ img: f.img, source: f.source || null, rect: f.rect || null, duration: 6, events: [] });
+  if (!clean) return;
+  a.frames.push(clean);
+  state.selected.clear();
+  state.selected.add(a.frames.length - 1);
+  markDirty(); renderAll();
+}
+function moveFrame(from, to) {
+  const a = cur();
+  if (!a || from === to || from < 0 || to < 0 || from >= a.frames.length || to >= a.frames.length) return;
+  const [f] = a.frames.splice(from, 1);
+  a.frames.splice(to, 0, f);
+  // remap selection
+  const sel = new Set();
+  for (const s of state.selected) {
+    if (s === from) sel.add(to);
+    else if (from < to && s > from && s <= to) sel.add(s - 1);
+    else if (from > to && s >= to && s < from) sel.add(s + 1);
+    else sel.add(s);
+  }
+  state.selected = sel;
+  markDirty(); renderTimeline(); renderFrameProps(); renderEvents();
+}
+
+// ---------------- preview playback ----------------
+function tick(now) {
+  requestAnimationFrame(tick);
+  const a = cur();
+  const img = $("previewImg");
+  if (!a || !a.frames.length) {
+    img.removeAttribute("src");
+    $("frameLabel").textContent = "";
+    return;
+  }
+  if (!state.lastTick) state.lastTick = now;
+  const dt = Math.min(100, now - state.lastTick);
+  state.lastTick = now;
+  if (state.playIdx >= a.frames.length) state.playIdx = 0;
+  if (state.playDir !== 1 && state.playDir !== -1) state.playDir = 1;
+  if (state.playing && a.frames.length > 1) {
+    state.playAcc += (dt / (1000 / 60)) * state.speed * a.baseSpeed;
+    const pp = a.loop && a.loopMode === "pingpong";
+    const rnd = a.loop && a.loopMode === "random";
+    let guard = 0;
+    while (state.playAcc >= a.frames[state.playIdx].duration && guard < 64) {
+      guard++;
+      state.playAcc -= a.frames[state.playIdx].duration;
+      if (pp) {
+        let next = state.playIdx + state.playDir;
+        if (next >= a.frames.length) { state.playDir = -1; next = a.frames.length - 2; }
+        else if (next < 0) { state.playDir = 1; next = 1; }
+        state.playIdx = next;
+      } else if (rnd) {
+        let next = state.playIdx, g2 = 0;
+        do { next = Math.floor(Math.random() * a.frames.length); g2++; }
+        while (next === state.playIdx && g2 < 8);
+        state.playIdx = next;
+      } else {
+        let next = state.playIdx + 1;
+        if (next >= a.frames.length) next = a.loop ? Math.min(a.loopFrom, a.frames.length - 1) : 0;
+        state.playIdx = next;
+      }
+    }
+  }
+  const f = a.frames[state.playIdx];
+  const src = imgUrlFor(f);
+  const key = (f.source || f.img) + "|" + (f.rect ? [f.rect.x, f.rect.y, f.rect.w, f.rect.h].join(",") : "full");
+  if (img.dataset.key !== key) {
+    img.dataset.key = key;
+    if (src.url) {
+      img.src = src.url;
+      img.style.display = "";
+      // Crop sheet cells by drawing to an offscreen canvas (accurate preview).
+      if (src.crop) {
+        cropTo(img, src.url, src.crop);
+        img.removeAttribute("src");
+      } else {
+        img.style.clipPath = "";
+        img.style.width = "";
+      }
+    } else {
+      img.removeAttribute("src");
+      img.style.display = "none";
+    }
+  }
+  const ms = Math.round(f.duration * 1000 / 60);
+  $("frameLabel").textContent = "frame " + state.playIdx + "/" + (a.frames.length - 1) +
+    " · " + f.duration + "f (" + ms + "ms)" + (f.events.length ? " · ⚡" + f.events.length : "") +
+    (state.playing ? "" : " · paused");
+  $("btnPlay").textContent = state.playing ? "Pause" : "Play";
+}
+function cropTo(imgEl, url, rect) {
+  const im = new Image();
+  im.onload = () => {
+    try {
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, rect.w); c.height = Math.max(1, rect.h);
+      c.getContext("2d").drawImage(im, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+      imgEl.src = c.toDataURL();
+      imgEl.style.display = "";
+    } catch (e) { imgEl.src = url; }
+  };
+  im.onerror = () => { imgEl.src = url; };
+  im.src = url;
+}
+
+// ---------------- persistence ----------------
+let dirtyTimer = 0;
+function markDirty() {
+  if (!state.canWrite || !state.dirHandle) {
+    setSave("Unsaved changes — use Export JSON (open folder in Chrome/Edge for auto-save).", "err");
+    return;
+  }
+  setSave("Saving…");
+  clearTimeout(dirtyTimer);
+  dirtyTimer = setTimeout(saveAll, 500);
+}
+async function saveAll() {
+  if (!state.canWrite || !state.dirHandle) return;
+  try {
+    await ensureFmDirs();
+    for (const a of state.anims) {
+      await writeTextFile("data", "framemaster", a.file, JSON.stringify(a.data, null, 2));
+    }
+    const reg = state.anims.map(a => ({ id: a.id, name: a.data.name, file: a.file }));
+    await writeTextFile("data", "framemaster", "FM_Animations.json", JSON.stringify(reg, null, 2));
+    setSave("Saved ✓  (" + new Date().toLocaleTimeString() + ")", "ok");
+  } catch (e) {
+    setSave("Save failed: " + e.message, "err");
+    toast("Auto-save failed: " + e.message, "err");
+  }
+}
+async function deleteCurrentFile() {
+  const c = state.current;
+  if (!c) return;
+  try {
+    if (state.canWrite && state.dirHandle) {
+      const d1 = await state.dirHandle.getDirectoryHandle("data");
+      const d2 = await d1.getDirectoryHandle("framemaster");
+      await d2.removeEntry(c.file);
+      await saveAll();
+    }
+  } catch (e) { /* fallback: just drop from memory */ }
+}
+
+// ---------------- UI wiring ----------------
+function wire() {
+  $("btnFolder").onclick = openFolder;
+  $("animSelect").onchange = (e) => {
+    const hit = state.anims.find(a => a.id === e.target.value);
+    if (hit) {
+      state.current = hit;
+      state.selected.clear();
+      state.playIdx = 0; state.playAcc = 0;
+      renderAll();
+    }
+  };
+  $("btnNew").onclick = () => {
+    let base = "new_anim", n = 1, id = base;
+    while (state.anims.some(a => a.id === id)) id = base + "_" + (++n);
+    const entry = { id, name: "New Animation", file: id + ".json", data: blankAnim(id, "New Animation") };
+    state.anims.push(entry);
+    state.current = entry;
+    state.selected.clear();
+    renderAnimSelect(); renderAll(); markDirty();
+    toast("Created " + id + ". Rename it on the right.", "ok");
+  };
+  $("btnDup").onclick = () => {
+    const c = state.current;
+    if (!c) return;
+    let id = c.id + "_copy", n = 1;
+    while (state.anims.some(a => a.id === id)) id = c.id + "_copy" + (++n);
+    const data = JSON.parse(JSON.stringify(c.data));
+    data.id = id; data.name = c.data.name + " (copy)";
+    const entry = { id, name: data.name, file: id + ".json", data };
+    state.anims.push(entry);
+    state.current = entry;
+    state.selected.clear();
+    renderAnimSelect(); renderAll(); markDirty();
+  };
+  $("btnDel").onclick = async () => {
+    const c = state.current;
+    if (!c) return;
+    if (!confirm("Delete animation '" + c.id + "'?")) return;
+    await deleteCurrentFile();
+    state.anims = state.anims.filter(a => a !== c);
+    state.current = state.anims[0] || null;
+    state.selected.clear();
+    renderAnimSelect(); renderAll();
+    if (state.canWrite) saveAll();
+  };
+  $("btnExport").onclick = () => {
+    const c = state.current;
+    if (!c) return;
+    const blob = new Blob([JSON.stringify(c.data, null, 2)], { type: "application/json" });
+    const aEl = document.createElement("a");
+    aEl.href = URL.createObjectURL(blob);
+    aEl.download = c.file;
+    aEl.click();
+    toast("Downloaded " + c.file + " — copy it into data/framemaster/ and rebuild the registry.", "ok");
+  };
+  $("fileInput").onchange = async (e) => {
+    for (const file of e.target.files) {
+      if (!/\.png$/i.test(file.name)) continue;
+      const url = URL.createObjectURL(file);
+      const size = await probeSize(url);
+      if (!state.imgFiles.some(f => f.name === file.name)) {
+        state.imgFiles.push({ name: file.name, blob: file, url, w: size.w, h: size.h });
+      }
+      appendFrame({ img: file.name, rect: null });
+    }
+    renderImportGrid(); renderSheetSelect();
+    e.target.value = "";
+  };
+  $("btnAddSelected").onclick = () => {
+    const sorted = [...state.imgFiles].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    if (!sorted.length) { toast("No PNGs available. Open the project folder first.", "err"); return; }
+    for (const f of sorted) appendFrame({ img: f.name, rect: null });
+    toast("Added " + sorted.length + " frames.", "ok");
+  };
+  $("btnSlicePreview").onclick = () => {
+    const name = $("sheetSelect").value;
+    const hit = state.imgFiles.find(f => f.name === name);
+    if (!hit) { toast("Pick a sheet first.", "err"); return; }
+    const w = clampInt($("sheetW").value, 1, 2048, 48), h = clampInt($("sheetH").value, 1, 2048, 48);
+    drawSheetGrid(hit, w, h);
+    const cols = Math.floor(hit.w / w), rows = Math.floor(hit.h / h);
+    $("sheetInfo").textContent = hit.w + "×" + hit.h + " → " + cols + "×" + rows + " = " + (cols * rows) + " cells.";
+  };
+  $("btnSlice").onclick = () => {
+    const a = cur();
+    if (!a) { toast("Create an animation first.", "err"); return; }
+    const name = $("sheetSelect").value;
+    const hit = state.imgFiles.find(f => f.name === name);
+    if (!hit) { toast("Pick a sheet first.", "err"); return; }
+    const w = clampInt($("sheetW").value, 1, 2048, 48), h = clampInt($("sheetH").value, 1, 2048, 48);
+    const skip = clampInt($("sheetSkip").value, 0, 4096, 0);
+    const cols = Math.floor(hit.w / w), rows = Math.floor(hit.h / h);
+    let added = 0;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      if (idx < skip) continue;
+      a.frames.push({ img: name, source: name, rect: { x: c * w, y: r * h, w, h }, duration: 6, events: [] });
+      added++;
+    }
+    markDirty(); renderAll();
+    toast("Sliced " + added + " frames from " + name + ".", "ok");
+  };
+  // preview controls
+  $("btnPlay").onclick = () => { state.playing = !state.playing; };
+  $("btnStepBack").onclick = () => {
+    const a = cur();
+    if (!a || !a.frames.length) return;
+    state.playing = false;
+    state.playIdx = (state.playIdx - 1 + a.frames.length) % a.frames.length;
+    state.playAcc = 0;
+  };
+  $("btnStepFwd").onclick = () => {
+    const a = cur();
+    if (!a || !a.frames.length) return;
+    state.playing = false;
+    state.playIdx = (state.playIdx + 1) % a.frames.length;
+    state.playAcc = 0;
+  };
+  $("speedMul").onchange = (e) => { state.speed = Math.min(4, Math.max(0.1, Number(e.target.value) || 1)); };
+  $("chkGround").onchange = (e) => { $("ground").style.display = e.target.checked ? "block" : "none"; };
+  document.addEventListener("keydown", (e) => {
+    if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.code === "Space") { e.preventDefault(); state.playing = !state.playing; }
+    if (e.code === "ArrowRight") $("btnStepFwd").click();
+    if (e.code === "ArrowLeft") $("btnStepBack").click();
+  });
+  // properties
+  $("propName").onchange = (e) => {
+    const a = cur();
+    if (!a) return;
+    a.name = e.target.value.trim() || a.id;
+    const entry = state.current;
+    entry.name = a.name;
+    renderAnimSelect(); markDirty();
+  };
+  $("propId").onchange = (e) => {
+    const a = cur();
+    if (!a) return;
+    const nid = e.target.value.trim();
+    if (!/^[A-Za-z0-9_]+$/.test(nid)) { toast("ID must be letters, digits, underscore only.", "err"); renderProps(); return; }
+    if (state.anims.some(x => x !== state.current && x.id === nid)) { toast("ID already exists.", "err"); renderProps(); return; }
+    state.current.id = nid;
+    state.current.file = nid + ".json";
+    a.id = nid;
+    renderAnimSelect(); markDirty();
+  };
+  $("propLoop").onchange = (e) => { const a = cur(); if (a) { a.loop = e.target.checked; markDirty(); } };
+  $("propLoopFrom").onchange = (e) => {
+    const a = cur();
+    if (a) { a.loopFrom = clampInt(e.target.value, 0, Math.max(0, a.frames.length - 1), 0); markDirty(); renderProps(); }
+  };
+  $("propLoopMode").onchange = (e) => {
+    const a = cur();
+    if (!a) return;
+    a.loopMode = (e.target.value === "pingpong" || e.target.value === "random") ? e.target.value : "normal";
+    state.playDir = 1;
+    markDirty();
+  };
+  $("propBaseSpeed").onchange = (e) => {
+    const a = cur();
+    if (a) { a.baseSpeed = Math.min(8, Math.max(0.1, Number(e.target.value) || 1)); markDirty(); }
+  };
+  $("propAnchor").onchange = (e) => {
+    const a = cur();
+    if (!a) return;
+    const [x, y] = e.target.value.split(",").map(Number);
+    a.anchorX = x; a.anchorY = y;
+    markDirty();
+  };
+  // batch
+  $("btnBatchDur").onclick = () => {
+    const a = cur();
+    if (!a || !state.selected.size) return;
+    const d = clampInt($("batchDur").value, 1, 36000, 6);
+    for (const i of state.selected) if (a.frames[i]) a.frames[i].duration = d;
+    markDirty(); renderTimeline(); renderFrameProps();
+  };
+  $("btnBatchClearEv").onclick = () => {
+    const a = cur();
+    if (!a) return;
+    for (const i of state.selected) if (a.frames[i]) a.frames[i].events = [];
+    markDirty(); renderTimeline(); renderEvents();
+  };
+  $("btnBatchDel").onclick = () => {
+    const a = cur();
+    if (!a || !state.selected.size) return;
+    const kill = new Set(state.selected);
+    a.frames = a.frames.filter((_, i) => !kill.has(i));
+    state.selected.clear();
+    state.playIdx = 0; state.playAcc = 0;
+    a.loopFrom = clampInt(a.loopFrom, 0, Math.max(0, a.frames.length - 1), 0);
+    markDirty(); renderAll();
+  };
+  // frame events
+  const needFrame = () => {
+    const a = cur();
+    const idx = [...state.selected].sort((x, y) => x - y)[0];
+    return (a && idx !== undefined && a.frames[idx]) ? a.frames[idx] : null;
+  };
+  $("btnAddSe").onclick = () => {
+    const f = needFrame();
+    if (!f) { toast("Select a frame first.", "err"); return; }
+    f.events.push({ type: "se", se: { name: "", volume: 90, pitch: 100, pan: 0 } });
+    markDirty(); renderEvents(); renderTimeline();
+  };
+  $("btnAddCe").onclick = () => {
+    const f = needFrame();
+    if (!f) { toast("Select a frame first.", "err"); return; }
+    f.events.push({ type: "commonEvent", id: 1 });
+    markDirty(); renderEvents(); renderTimeline();
+  };
+  $("btnAddSw").onclick = () => {
+    const f = needFrame();
+    if (!f) { toast("Select a frame first.", "err"); return; }
+    f.events.push({ type: "switch", id: 1, value: true });
+    markDirty(); renderEvents(); renderTimeline();
+  };
+  $("ground").style.display = "block";
+}
+function drawSheetGrid(hit, w, h) {
+  const prev = $("sheetPreview");
+  prev.src = hit.url;
+  prev.onload = () => {
+    const c = document.createElement("canvas");
+    const scale = Math.min(1, 460 / hit.w);
+    c.width = Math.max(1, Math.round(hit.w * scale));
+    c.height = Math.max(1, Math.round(hit.h * scale));
+    const g = c.getContext("2d");
+    const im = new Image();
+    im.onload = () => {
+      g.drawImage(im, 0, 0, c.width, c.height);
+      g.strokeStyle = "#6ea8fe";
+      g.lineWidth = 1;
+      for (let x = 0; x <= hit.w; x += w) { g.beginPath(); g.moveTo(x * scale, 0); g.lineTo(x * scale, c.height); g.stroke(); }
+      for (let y = 0; y <= hit.h; y += h) { g.beginPath(); g.moveTo(0, y * scale); g.lineTo(c.width, y * scale); g.stroke(); }
+      prev.src = c.toDataURL();
+    };
+    im.src = hit.url;
+  };
+}
+
+// ---------------- boot ----------------
+wire();
+renderAnimSelect();
+renderAll();
+requestAnimationFrame(tick);
+if (!window.showDirectoryPicker) {
+  setSave("Browser has no folder access — use file pickers, then Export JSON.", "err");
+}
+</script>
+</body>
+</html>

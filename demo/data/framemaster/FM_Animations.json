@@ -1,0 +1,17 @@
+[
+  {
+    "id": "slime_idle",
+    "name": "Slime Idle",
+    "file": "slime_idle.json"
+  },
+  {
+    "id": "hero_run",
+    "name": "Hero Run (sheet)",
+    "file": "hero_run.json"
+  },
+  {
+    "id": "slime_bounce",
+    "name": "Slime Bounce (ping-pong)",
+    "file": "slime_bounce.json"
+  }
+]

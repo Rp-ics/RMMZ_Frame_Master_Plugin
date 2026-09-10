@@ -1,0 +1,37 @@
+{
+  "id": "slime_idle",
+  "name": "Slime Idle",
+  "version": 1,
+  "loop": true,
+  "loopFrom": 0,
+  "baseSpeed": 1.0,
+  "anchorX": 0.5,
+  "anchorY": 1.0,
+  "frames": [
+    {
+      "img": "slime_0.png",
+      "source": null,
+      "rect": null,
+      "duration": 8,
+      "events": [
+        {
+          "type": "se",
+          "se": { "name": "Jump1", "volume": 40, "pitch": 120, "pan": 0 }
+        }
+      ]
+    },
+    { "img": "slime_1.png", "source": null, "rect": null, "duration": 8, "events": [] },
+    { "img": "slime_2.png", "source": null, "rect": null, "duration": 8, "events": [] },
+    { "img": "slime_3.png", "source": null, "rect": null, "duration": 8, "events": [] },
+    {
+      "img": "slime_4.png",
+      "source": null,
+      "rect": null,
+      "duration": 10,
+      "events": [{ "type": "switch", "id": 12, "value": true }]
+    },
+    { "img": "slime_5.png", "source": null, "rect": null, "duration": 8, "events": [] },
+    { "img": "slime_6.png", "source": null, "rect": null, "duration": 8, "events": [] },
+    { "img": "slime_7.png", "source": null, "rect": null, "duration": 8, "events": [] }
+  ]
+}

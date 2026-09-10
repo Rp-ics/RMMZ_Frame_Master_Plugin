@@ -1,0 +1,17 @@
+{
+  "id": "slime_bounce",
+  "name": "Slime Bounce (ping-pong)",
+  "version": 1,
+  "loop": true,
+  "loopFrom": 0,
+  "loopMode": "pingpong",
+  "baseSpeed": 1.0,
+  "anchorX": 0.5,
+  "anchorY": 1.0,
+  "frames": [
+    { "img": "slime_0.png", "source": null, "rect": null, "duration": 7, "events": [] },
+    { "img": "slime_1.png", "source": null, "rect": null, "duration": 7, "events": [] },
+    { "img": "slime_2.png", "source": null, "rect": null, "duration": 7, "events": [] },
+    { "img": "slime_3.png", "source": null, "rect": null, "duration": 7, "events": [] }
+  ]
+}

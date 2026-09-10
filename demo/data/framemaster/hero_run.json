@@ -1,0 +1,64 @@
+{
+  "id": "hero_run",
+  "name": "Hero Run (sheet)",
+  "version": 1,
+  "loop": true,
+  "loopFrom": 0,
+  "baseSpeed": 1.2,
+  "anchorX": 0.5,
+  "anchorY": 1.0,
+  "frames": [
+    {
+      "img": "hero_run_sheet.png",
+      "source": "hero_run_sheet.png",
+      "rect": { "x": 0, "y": 0, "w": 48, "h": 48 },
+      "duration": 4,
+      "events": []
+    },
+    {
+      "img": "hero_run_sheet.png",
+      "source": "hero_run_sheet.png",
+      "rect": { "x": 48, "y": 0, "w": 48, "h": 48 },
+      "duration": 4,
+      "events": []
+    },
+    {
+      "img": "hero_run_sheet.png",
+      "source": "hero_run_sheet.png",
+      "rect": { "x": 96, "y": 0, "w": 48, "h": 48 },
+      "duration": 4,
+      "events": [
+        {
+          "type": "se",
+          "se": { "name": "Step1", "volume": 60, "pitch": 100, "pan": 0 }
+        }
+      ]
+    },
+    {
+      "img": "hero_run_sheet.png",
+      "source": "hero_run_sheet.png",
+      "rect": { "x": 144, "y": 0, "w": 48, "h": 48 },
+      "duration": 4,
+      "events": []
+    },
+    {
+      "img": "hero_run_sheet.png",
+      "source": "hero_run_sheet.png",
+      "rect": { "x": 192, "y": 0, "w": 48, "h": 48 },
+      "duration": 4,
+      "events": []
+    },
+    {
+      "img": "hero_run_sheet.png",
+      "source": "hero_run_sheet.png",
+      "rect": { "x": 240, "y": 0, "w": 48, "h": 48 },
+      "duration": 4,
+      "events": [
+        {
+          "type": "commonEvent",
+          "id": 3
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+FrameMaster MZ — LITE License (v1.x)
+Copyright (c) Rpx & Just Dev. All rights reserved.
+Repository: https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin
+
+You MAY:
+- Use this plugin (FrameMaster.js), the editors and the demo files in any
+  number of your own RPG Maker MZ projects, commercial or non-commercial.
+- Modify the plugin for your own projects' needs.
+
+You MUST:
+- Credit "FrameMaster MZ by Rpx & Just Dev" in your game's credits (or README / store
+  page credits section).
+
+You MAY NOT:
+- Redistribute, resell, sublicense or re-upload the plugin file itself,
+  modified or not, alone or inside asset packs / templates / "starter kits".
+- Claim authorship of the plugin.
+- Remove or falsify copyright notices in the plugin header.
+
+PRO version: advanced features (battle sprites, script frame events,
+extra directions, priority support) are licensed separately. Owning PRO
+does not change these LITE terms for the LITE files.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
