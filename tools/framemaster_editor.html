@@ -102,6 +102,7 @@
   <button id="btnDup" title="Duplicate the current animation">Duplicate</button>
   <button id="btnDel" class="danger" title="Delete the current animation file">Delete</button>
   <button id="btnExport" title="Download the current animation JSON (fallback when auto-save is unavailable)">Export JSON</button>
+  <label title="When ON, saves/exports build a packed atlas (1 texture per animation) for performance; OFF keeps single PNGs (editable)"><input type="checkbox" id="chkAtlas" checked> Atlas</label>
   <a href="https://rpxgames.win/tools/framemaster/" title="Open the online Animation Forge (same editor + downloadable project pack + GIF/sheet export)" style="font-size:12px;color:var(--acc)">Online forge ↗</a>
   <span id="saveState">No project folder open.</span>
 </header>
@@ -333,6 +334,112 @@ function asepriteToAnims(raw, fileName) {
   return [{ id: baseId, name: baseId, version: 1, loop: true, loopFrom: 0, loopMode: "normal", baseSpeed: 1.0, anchorX: 0.5, anchorY: 1.0, frames: list.map(toFrame) }];
 }
 /* FM-ASEPRITE-END */
+
+/* FM-PACKER-START */
+function packMaxRects(frameSizes, opts) {
+  opts = opts || {};
+  const padding = Math.max(0, opts.padding | 0) || 1;
+  const maxSize = opts.maxSize || 2048;
+  const pot = opts.pot !== false;
+  const sorted = frameSizes.map((f,i)=>({w:f.w,h:f.h,i})).sort((a,b)=> Math.max(b.w,b.h)-Math.max(a.w,a.h));
+  let size = 256;
+  const maxSide = Math.max(...frameSizes.map(f=>Math.max(f.w,f.h)), 0) + padding;
+  while (size < maxSide) size *= 2;
+  if (size > maxSize) size = maxSize;
+  let placements = null;
+  let atlasW=size, atlasH=size;
+  for (let attempt=0; attempt<6; attempt++) {
+    const free=[{x:0,y:0,w:size,h:size}];
+    const placed=new Array(frameSizes.length);
+    let ok=true;
+    for (const fr of sorted) {
+      let best=null, bestIdx=-1, bestScore=Infinity;
+      for (let i=0;i<free.length;i++) {
+        const r=free[i];
+        if (r.w >= fr.w+padding && r.h >= fr.h+padding) {
+          const leftH=r.w - fr.w - padding;
+          const leftV=r.h - fr.h - padding;
+          const shortSide=Math.min(leftH,leftV);
+          const longSide=Math.max(leftH,leftV);
+          const score=shortSide*10 + longSide;
+          if (score<bestScore){ bestScore=score; best=r; bestIdx=i; }
+        }
+      }
+      if (!best){ ok=false; break; }
+      const px=best.x, py=best.y;
+      placed[fr.i]={x:px, y:py, w:fr.w, h:fr.h};
+      const right={x:px+fr.w+padding, y:py, w:best.w - fr.w - padding, h:fr.h+padding};
+      const bottom={x:px, y:py+fr.h+padding, w:best.w, h:best.h - fr.h - padding};
+      free.splice(bestIdx,1);
+      if (right.w>0 && right.h>0) free.push(right);
+      if (bottom.w>0 && bottom.h>0) free.push(bottom);
+      for (let i=free.length-1;i>=0;i--) for(let j=free.length-1;j>=0;j--) if(i!==j){
+        const a=free[i], b=free[j];
+        if (a.x>=b.x && a.y>=b.y && a.x+a.w<=b.x+b.w && a.y+a.h<=b.y+b.h){ free.splice(i,1); break; }
+      }
+    }
+    if (ok){ placements=placed; atlasW=size; atlasH=size; break; }
+    size*=2;
+    if (size>maxSize) break;
+  }
+  if (!placements) return null;
+  let maxX=0, maxY=0;
+  for(const p of placements){ maxX=Math.max(maxX,p.x+p.w); maxY=Math.max(maxY,p.y+p.h); }
+  if (!pot){ atlasW=maxX+padding; atlasH=maxY+padding; }
+  return {placements, w:atlasW, h:atlasH, padding};
+}
+async function packAnimationToAtlas(anim, opts) {
+  opts=opts||{};
+  const padding=opts.padding==null?1:opts.padding;
+  const maxSize=opts.maxSize||2048;
+  const pot=opts.pot!==false;
+  const frames=[];
+  for(let i=0;i<anim.frames.length;i++){
+    const f=anim.frames[i];
+    if (f.rect && f.source) {
+      const hit=state.imgFiles.find(x=>x.name.toLowerCase()===(f.source||"").toLowerCase());
+      if (!hit) throw new Error("Missing sheet '" + f.source + "' for frame #"+i+" — upload it first.");
+      frames.push({w:f.rect.w, h:f.rect.h, src:hit.url, sx:f.rect.x, sy:f.rect.y, sw:f.rect.w, sh:f.rect.h, duration:f.duration, events:f.events});
+    } else {
+      const name=f.source||f.img;
+      const hit=state.imgFiles.find(x=>x.name.toLowerCase()===name.toLowerCase());
+      if (!hit) throw new Error("Missing image '" + name + "' for frame #"+i+" — upload it first.");
+      const w=hit.w||48, h=hit.h||48;
+      frames.push({w, h, src:hit.url, sx:0, sy:0, sw:w, sh:h, duration:f.duration, events:f.events});
+    }
+  }
+  const sizes=frames.map(f=>({w:f.w,h:f.h}));
+  const pack=packMaxRects(sizes,{padding,maxSize,pot});
+  if(!pack) throw new Error("Atlas too small — try larger maxSize or fewer frames.");
+  const canvas=document.createElement("canvas");
+  canvas.width=pack.w; canvas.height=pack.h;
+  const g=canvas.getContext("2d");
+  g.clearRect(0,0,canvas.width,canvas.height);
+  const placements=pack.placements;
+  for(let i=0;i<frames.length;i++){
+    const fr=frames[i];
+    const p=placements[i];
+    const img=await new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=()=>rej(new Error("Cannot load "+fr.src)); im.src=fr.src; });
+    if (fr.sx||fr.sy) {
+      const tmp=document.createElement("canvas"); tmp.width=fr.sw; tmp.height=fr.sh;
+      tmp.getContext("2d").drawImage(img, fr.sx, fr.sy, fr.sw, fr.sh, 0,0, fr.sw, fr.sh);
+      g.drawImage(tmp, p.x, p.y);
+    } else {
+      g.drawImage(img, p.x, p.y);
+    }
+  }
+  const atlasName="atlas_" + anim.id + ".png";
+  const blob=await new Promise(res=>canvas.toBlob(res,"image/png"));
+  if(!blob) throw new Error("PNG encoding failed.");
+  const newFrames=frames.map((fr,i)=>{
+    const p=placements[i];
+    return { img:atlasName, source:atlasName, rect:{x:p.x, y:p.y, w:fr.w, h:fr.h}, duration:fr.duration, events:fr.events, offsetX:0, offsetY:0 };
+  });
+  const newAnim={ id:anim.id, name:anim.name, version:1, loop:anim.loop, loopFrom:anim.loopFrom, loopMode:anim.loopMode||"normal",
+    baseSpeed:anim.baseSpeed, anchorX:anim.anchorX, anchorY:anim.anchorY, frames:newFrames };
+  return { atlasName, blob, newAnim, pack };
+}
+/* FM-PACKER-END */
 function slugify(name) {
   return String(name || "anim").toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "") || "anim";
 }
@@ -842,12 +949,25 @@ async function saveAll() {
   if (!state.canWrite || !state.dirHandle) return;
   try {
     await ensureFmDirs();
-    for (const a of state.anims) {
-      await writeTextFile("data", "framemaster", a.file, JSON.stringify(a.data, null, 2));
+    const useAtlas = document.getElementById("chkAtlas") && document.getElementById("chkAtlas").checked;
+    if (useAtlas) {
+      for (const a of state.anims) {
+        const {atlasName, blob, newAnim} = await packAnimationToAtlas(a.data);
+        const imgDir = await (await state.dirHandle.getDirectoryHandle("img")).getDirectoryHandle("framemaster");
+        const fh = await imgDir.getFileHandle(atlasName, {create:true});
+        const w = await fh.createWritable();
+        await w.write(blob);
+        await w.close();
+        await writeTextFile("data", "framemaster", a.file, JSON.stringify(newAnim, null, 2));
+      }
+    } else {
+      for (const a of state.anims) {
+        await writeTextFile("data", "framemaster", a.file, JSON.stringify(a.data, null, 2));
+      }
     }
     const reg = state.anims.map(a => ({ id: a.id, name: a.data.name, file: a.file }));
     await writeTextFile("data", "framemaster", "FM_Animations.json", JSON.stringify(reg, null, 2));
-    setSave("Saved ✓  (" + new Date().toLocaleTimeString() + ")", "ok");
+    setSave("Saved ✓  (" + new Date().toLocaleTimeString() + ")" + (useAtlas ? " [Atlas]" : ""), "ok");
   } catch (e) {
     setSave("Save failed: " + e.message, "err");
     toast("Auto-save failed: " + e.message, "err");

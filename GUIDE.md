@@ -104,7 +104,7 @@ Open **https://rpxgames.win/tools/framemaster/**
 
 ### 5.1 Upload PNG/WebP
 - Drag your PNG/WebP **anywhere on the page**, or use **Choose file**.
-- They must have the **same size** inside the same animation (e.g., all 48×48), transparent background, feet at bottom center.
+- Frames can have **different sizes** (e.g., 64×64 and 64×128 for a sword swing) — the Atlas packer handles it. Keep transparent background, feet at bottom center, anchor `0.5,1`.
 - Ordered names help: `walk_0.png … walk_5.png`.
 
 ### 5.2 Create animation
@@ -118,9 +118,14 @@ Open **https://rpxgames.win/tools/framemaster/**
 - **Properties** on the right: **Loop** ON/OFF, **Loop from**, **Loop mode** (Normal / Ping-pong 1,2,3,2,1 / Random), **Base speed**, **Anchor**.
 - **Selected frame:** change **Duration** in frames (60 = 1 sec) or ms, replace image, add **Frame events** (+ SE / + Event / + Switch / + Script).
 
-### 5.4 Saving
-- **If you linked the project folder** (button **Project folder**, Chromium only): auto-save to `data/framemaster/` on every change (`Saved ✓`).
-- **Otherwise:** press **Download pack (.zip)** → unzip into the project root.
+### 5.4 Saving — Source vs Build (Atlas)
+You always **edit single frames** (modular). On save/export the tool can **auto-pack** them into one atlas texture per animation for performance.
+
+- **Atlas toggle** (toolbar, checked by default): **ON** = build `atlas_<id>.png` (one texture, 1 XHR/GPU bind, 60-80% with `.webp`), **OFF** = keep 60 single PNGs (editable, slower).
+- **If you linked the project folder** (button **Project folder**, Chromium only): auto-save writes either atlas + JSON with `rect`+`offset` (ON) or single PNGs + JSON (OFF) on every change (`Saved ✓ [Atlas]`).
+- **Otherwise:** press **Download pack (.zip)** → same choice → unzip into the project root. The pack always contains the correct `data/framemaster/*.json` + `img/framemaster/` (atlas or singles).
+
+> Keep single PNGs for editing, ship atlas for play — best of both worlds. No grid constraint.
 
 ### 5.5 Layer Strip (visual test)
 Below the preview you will find **Layers:** 3 fields. Write an **animation ID** or a **suffix** like `_iron`. Example base `hero_walk` + `_iron` → preview `hero_walk_iron` overlaid on the same frameIndex. This is only to check alignment (real layers live in game state, not in the animation file).
