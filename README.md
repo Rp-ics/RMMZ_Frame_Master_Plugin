@@ -5,7 +5,7 @@ unlimited frames, visual editors, automatic states, one-click exports.
 
 - 🎞️ **Live Animation Forge (no install): https://rpxgames.win/tools/framemaster/**
 - 📦 Repository: https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin
-- 📖 Full manual: `doc/FrameMaster_HELP.md`
+- 📖 Full manual: `doc/FrameMaster_HELP.md` · Compatibility: `doc/COMPATIBILITY.md`
 
 ## Editions
 
@@ -22,7 +22,7 @@ pictures, script events and battle director are all included).
   battle**, lockstep timing
 - **8-direction auto-pilot**: vettore diagonale in pixel movement (Altimit,
 - **Auto-pilot**: idle when stopped, walk when moving, dash when dashing,
-  plus per-direction variants — set once via Plugin Command, runs forever
+  plus 4-dir/8-dir variants (diagonal vector for pixel movers) — set once via Plugin Command, runs forever
 - **Frame events**: SE, Common Event, Switch fired automatically per frame
 - **Crossfade blends** between animations
 - **Visual editors**: standalone local tool + online Animation Forge
@@ -58,9 +58,12 @@ FrameMaster/
 The online forge: **https://rpxgames.win/tools/framemaster/** (same editor,
 runs in any browser, adds GIF / sprite-sheet / frames-ZIP export).
 
+## Compatibility
+
+See `doc/COMPATIBILITY.md` — matrix for VisuStella / Altimit / Rosedale / MZ3D / Aseprite + API `registerLayerProvider`.
+
 ## License
 
-LITE — free for commercial and non-commercial games, credit required
+Free for commercial and non-commercial games, credit required
 ("FrameMaster MZ by Rpx & Just Dev"). No redistribution/resale of the plugin file.
-Full terms in `LICENSE`. PRO features (battle sprites, script frame
-events, extra directions, priority support) are licensed separately.
+Full terms in `LICENSE`.
