@@ -1,269 +1,269 @@
-# FrameMaster MZ — Guida Completa (Setup, Impostazioni e Comandi)
+# FrameMaster MZ — Complete Guide (Setup, Settings & Commands)
 
-> **Lingua:** Italiano · **Versione:** v2.3.0 · **Autori:** Rpx & Just Dev  
-> **Forge online:** https://rpxgames.win/tools/framemaster/ · **Repo:** https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin
+> **Language:** English · **Version:** v2.3.0 · **Authors:** Rpx & Just Dev  
+> **Online Forge:** https://rpxgames.win/tools/framemaster/ · **Repo:** https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin
 
-Questa è la guida passo-passo per installare, configurare e usare FrameMaster senza scrivere codice (se non vuoi). Ogni comando è spiegato con a cosa serve, quando usarlo e un esempio pratico.
+This is the step-by-step guide to install, configure and use FrameMaster without writing code (unless you want to). Every command is explained with what it does, when to use it and a practical example.
 
 ---
 
-## Indice
+## Table of Contents
 
-1. [Cosa fa FrameMaster](#1-cosa-fa-framemaster)
-2. [Requisiti](#2-requisiti)
-3. [Installazione in 3 minuti](#3-installazione-in-3-minuti)
-4. [Struttura cartelle](#4-struttura-cartelle)
-5. [Creare la tua prima animazione (Forge Web)](#5-creare-la-tua-prima-animazione-forge-web)
-6. [Editor locale (alternativa offline)](#6-editor-locale-alternativa-offline)
-7. [Importare da Aseprite](#7-importare-da-aseprite)
-8. [Anteprima in gioco (tasto F8)](#8-anteprima-in-gioco-tasto-f8)
-9. [Impostazioni Plugin (Parameters)](#9-impostazioni-plugin-parameters)
-10. [Comandi Plugin — panoramica](#10-comandi-plugin--panoramica)
-11. [Comandi Personaggi (Mappa)](#11-comandi-personaggi-mappa)
+1. [What FrameMaster Does](#1-what-framemaster-does)
+2. [Requirements](#2-requirements)
+3. [Installation in 3 Minutes](#3-installation-in-3-minutes)
+4. [Folder Structure](#4-folder-structure)
+5. [Create Your First Animation (Web Forge)](#5-create-your-first-animation-web-forge)
+6. [Local Editor (Offline Alternative)](#6-local-editor-offline-alternative)
+7. [Import from Aseprite](#7-import-from-aseprite)
+8. [In-Game Preview (F8 Key)](#8-in-game-preview-f8-key)
+9. [Plugin Settings (Parameters)](#9-plugin-settings-parameters)
+10. [Plugin Commands — Overview](#10-plugin-commands--overview)
+11. [Character Commands (Map) — Details](#11-character-commands-map--details)
 12. [Auto-Pilot (Godot-style)](#12-auto-pilot-godot-style)
-13. [Layer — Equipaggiamento Visivo](#13-layer--equipaggiamento-visivo)
-14. [Battler e Pictures](#14-battler-e-pictures)
-15. [Battle Director (stati di battaglia)](#15-battle-director-stati-di-battaglia)
-16. [Azioni Indipendenti — PlayOnce](#16-azioni-indipendenti--playonce)
-17. [Script API (per chi usa codice)](#17-script-api-per-chi-usa-codice)
-18. [Formati immagine, Peso e Preload](#18-formati-immagine-peso-e-preload)
-19. [API per altri plugin (Compatibilità)](#19-api-per-altri-plugin-compatibilità)
-20. [Risoluzione Problemi (Troubleshooting)](#20-risoluzione-problemi-troubleshooting)
+13. [Layers — Visual Equipment](#13-layers--visual-equipment)
+14. [Battlers and Pictures](#14-battlers-and-pictures)
+15. [Battle Director (Battle States)](#15-battle-director-battle-states)
+16. [Independent Actions — PlayOnce](#16-independent-actions--playonce)
+17. [Script API (For Coders)](#17-script-api-for-coders)
+18. [Image Formats, Weight and Preload](#18-image-formats-weight-and-preload)
+19. [API for Other Plugins (Compatibility)](#19-api-for-other-plugins-compatibility)
+20. [Troubleshooting](#20-troubleshooting)
 
 ---
 
-## 1. Cosa fa FrameMaster
+## 1. What FrameMaster Does
 
-- Rompe il limite di **3 frame** dei charset di RPG Maker MZ: puoi avere **frame infiniti** per animazione.
-- Funziona su **Player, Eventi, Follower, Battler (Actor/Nemici), Pictures**.
-- Ogni animazione è un file JSON in `data/framemaster/` + PNG/WebP in `img/framemaster/`.
-- Hai un **editor visuale** (drag & drop, timeline, anteprima) sia online che locale.
-- Supporta **loop normali, ping-pong (avanti-indietro) e random**, **crossfade (blend)**, **frame events** (suono, common event, switch, script), **layer equipaggiamento** e **Battle Director** (idle, attacchi, hit, morte... automatici).
+- Breaks the **3-frame** limit of RPG Maker MZ charsets: you can have **unlimited frames** per animation.
+- Works on **Player, Events, Followers, Battlers (Actors/Enemies), Pictures**.
+- Each animation is a JSON file in `data/framemaster/` + PNG/WebP in `img/framemaster/`.
+- You get a **visual editor** (drag & drop, timeline, live preview) both online and local.
+- Supports **normal, ping-pong (forward-backward) and random loops**, **crossfade (blend)**, **frame events** (SE, common event, switch, script), **equipment layers** and **Battle Director** (idle, attacks, hit, death... automatic).
 
-> **Concetto chiave:** FrameMaster non indovina quando animare. Tu crei le animazioni nella Forge, poi dici al gioco *quando* farle partire (con un Evento). L'**Auto-Pilot** e il **Battle Director** le fanno partire da soli dopo, una volta configurati.
-
----
-
-## 2. Requisiti
-
-- **RPG Maker MZ 1.8+** (testato su NW.js e deploy web).
-- Metti FrameMaster **sotto** altri plugin visivi (es. VisuStella Events & Movement Core) nella lista Plugin Manager.
-- Per l'editor locale serve **Chrome/Edge** se vuoi l'auto-salvataggio diretto nella cartella progetto. La Forge online funziona su qualsiasi browser.
+> **Key concept:** FrameMaster does not guess when to animate. You create animations in the Forge, then tell the game *when* to play them (with an Event). **Auto-Pilot** and **Battle Director** will then trigger them automatically once configured.
 
 ---
 
-## 3. Installazione in 3 minuti
+## 2. Requirements
 
-### Passo 1 — Copia il plugin
-1. Prendi `FrameMaster.js` (te lo fornisce l'autore / release) e copialo in `<TuoProgetto>/js/plugins/`.
-2. Apri l'editor MZ → **Plugin Manager (F10)** → tasto destro → **Aggiungi** → scegli **FrameMaster** → **ON**.
-3. Imposta i 4 parametri (vedi capitolo 9). Per iniziare lascia tutto di default.
+- **RPG Maker MZ 1.8+** (tested on NW.js and web deploy).
+- Place FrameMaster **below** other visual plugins (e.g., VisuStella Events & Movement Core) in the Plugin Manager list.
+- For the local editor you need **Chrome/Edge** if you want direct auto-save into the project folder. The online Forge works on any browser.
 
-### Passo 2 — Crea le cartelle
-Crea a mano (o lascia fare alla Forge) queste due cartelle nella **root del progetto** (dove c'è `game.rmmzproject`):
+---
+
+## 3. Installation in 3 Minutes
+
+### Step 1 — Copy the plugin
+1. Get `FrameMaster.js` (provided by the author / release) and copy it to `<YourProject>/js/plugins/`.
+2. Open the MZ editor → **Plugin Manager (F10)** → right-click → **Add** → choose **FrameMaster** → **ON**.
+3. Set the 4 parameters (see chapter 9). For starters leave everything at default.
+
+### Step 2 — Create folders
+Create these two folders manually (or let the Forge do it) in the **project root** (where `game.rmmzproject` is):
 ```
-<TuoProgetto>/
+<YourProject>/
 ├── data/framemaster/
 └── img/framemaster/
 ```
 
-### Passo 3 — Aggiungi contenuti demo o tuoi
-- **Opzione A (consigliata):** Vai su https://rpxgames.win/tools/framemaster/ → **Load demo** → **Download pack (.zip)** → scompatta nella **root del progetto** (unisci `data/` e `img/`). Hai subito 3 animazioni funzionanti.
-- **Opzione B:** Copia `demo/data/framemaster/*.json` e `demo/img/framemaster/*.png` dal repo nella stesse cartelle.
+### Step 3 — Add demo or your own content
+- **Option A (recommended):** Go to https://rpxgames.win/tools/framemaster/ → **Load demo** → **Download pack (.zip)** → unzip into the **project root** (merge `data/` and `img/`). You instantly get 3 working animations.
+- **Option B:** Copy `demo/data/framemaster/*.json` and `demo/img/framemaster/*.png` from the repo into the same folders.
 
-### Passo 4 — Prova
-Avvia **Playtest (▶)** → sulla mappa premi **F8** → dovresti vedere la lista animazioni. Se vedi **0 animazioni**, leggi il pannello di diagnosi a destra (vedi capitolo 8) o il capitolo 20.
+### Step 4 — Test
+Start **Playtest (▶)** → on the map press **F8** → you should see the animation list. If you see **0 animations**, read the diagnosis panel on the right (see chapter 8) or chapter 20.
 
-> **Nota importante:** Se hai scompattato il pack dentro una sottocartella tipo `Coop/framemaster_pack/data/...` hai sbagliato livello: sposta `data/framemaster` e `img/framemaster` direttamente nella root.
+> **Important note:** If you unzipped the pack inside a subfolder like `Coop/framemaster_pack/data/...` you used the wrong level: move `data/framemaster` and `img/framemaster` directly into the root.
 
 ---
 
-## 4. Struttura cartelle
+## 4. Folder Structure
 
 ```
-<TuoProgetto>/
+<YourProject>/
 ├── data/framemaster/
-│   ├── FM_Animations.json      # registro: [{id, name, file}]
-│   ├── FM_BattleSets.json      # registro battle sets (se usi il Director)
-│   ├── slime_idle.json         # una animazione
-│   └── bset_slime.json         # un battle set
+│   ├── FM_Animations.json      # registry: [{id, name, file}]
+│   ├── FM_BattleSets.json      # battle sets registry (if you use the Director)
+│   ├── slime_idle.json         # one animation
+│   └── bset_slime.json         # one battle set
 └── img/framemaster/
     ├── slime_0.png / .webp
     ├── hero_run_sheet.png
     └── ...
 ```
 
-- **Non modificare a mano** `FM_Animations.json` e `FM_BattleSets.json`: li scrive la Forge.
-- I PNG/WebP possono essere singoli frame o sprite sheet interi.
+- **Do not edit** `FM_Animations.json` and `FM_BattleSets.json` by hand: the Forge writes them.
+- PNG/WebP can be single frames or full sprite sheets.
 
 ---
 
-## 5. Creare la tua prima animazione (Forge Web)
+## 5. Create Your First Animation (Web Forge)
 
-Apri **https://rpxgames.win/tools/framemaster/**
+Open **https://rpxgames.win/tools/framemaster/**
 
 ### 5.1 Upload PNG/WebP
-- Trascina i tuoi PNG/WebP **ovunque nella pagina**, oppure usa **Scegli file**.
-- Devono avere **stessa dimensione** dentro una stessa animazione (es. tutti 48×48), sfondo trasparente, piedi in basso al centro.
-- Nomi ordinati aiutano: `walk_0.png … walk_5.png`.
+- Drag your PNG/WebP **anywhere on the page**, or use **Choose file**.
+- They must have the **same size** inside the same animation (e.g., all 48×48), transparent background, feet at bottom center.
+- Ordered names help: `walk_0.png … walk_5.png`.
 
-### 5.2 Crea animazione
-1. Clicca **+ New** → rinomina a destra **ID (slug)** es. `player_walk` (solo `minuscole_numeri_underscore`) e **Name** `Camminata`.
-2. Clicca **Add all PNGs as frames** (ordina per nome) oppure clicca le miniature per aggiungerle una ad una.
-3. **Sprite sheet?** Se hai un unico PNG con griglia: scegli lo sheet a sinistra, imposta **Frame width/height**, premi **Grid** per vedere la griglia, poi **Slice → append**.
+### 5.2 Create animation
+1. Click **+ New** → rename on the right **ID (slug)** e.g. `player_walk` (only `lowercase_numbers_underscore`) and **Name** `Walk`.
+2. Click **Add all PNGs as frames** (sorted by name) or click thumbnails to add one by one.
+3. **Sprite sheet?** If you have a single PNG with a grid: pick the sheet on the left, set **Frame width/height**, press **Grid** to see the grid, then **Slice → append**.
 
-### 5.3 Timeline e Anteprima
-- **Timeline** sotto: trascina per riordinare, click / Ctrl+click / Shift+click per selezionare, batch per cambiare durata o cancellare.
-- **Anteprima** al centro: **Spazio** play/pausa, **←/→** frame singolo, **Speed** e **grounding** (ombretto finto).
-- **Proprietà** a destra: **Loop** ON/OFF, **Loop from**, **Loop mode** (Normal / Ping-pong 1,2,3,2,1 / Random), **Base speed**, **Anchor**.
-- **Frame selezionato:** cambia **Durata** in frame (60 = 1 sec) o ms, sostituisci immagine, aggiungi **Frame events** (+ SE / + Event / + Switch / + Script).
+### 5.3 Timeline and Preview
+- **Timeline** below: drag to reorder, click / Ctrl+click / Shift+click to select, batch to change duration or delete.
+- **Preview** in the center: **Space** play/pause, **←/→** single frame, **Speed** and **grounding** (fake shadow).
+- **Properties** on the right: **Loop** ON/OFF, **Loop from**, **Loop mode** (Normal / Ping-pong 1,2,3,2,1 / Random), **Base speed**, **Anchor**.
+- **Selected frame:** change **Duration** in frames (60 = 1 sec) or ms, replace image, add **Frame events** (+ SE / + Event / + Switch / + Script).
 
-### 5.4 Salvataggio
-- **Se hai collegato la cartella progetto** (bottone **Project folder**, solo Chromium): salva automatico in `data/framemaster/` a ogni modifica (`Saved ✓`).
-- **Altrimenti:** premi **Download pack (.zip)** → scompatta nella root del progetto.
+### 5.4 Saving
+- **If you linked the project folder** (button **Project folder**, Chromium only): auto-save to `data/framemaster/` on every change (`Saved ✓`).
+- **Otherwise:** press **Download pack (.zip)** → unzip into the project root.
 
-### 5.5 Striscia Layer (test visivo)
-Sotto l'anteprima trovi **Layers:** 3 campi. Scrivi un **ID animazione** o un **suffisso** tipo `_iron`. Es. base `hero_walk` + `_iron` → prova `hero_walk_iron` sovrapposto allo stesso frameIndex. Serve solo per vedere l'allineamento (i layer veri vivono nello stato di gioco, non nel file animazione).
-
----
-
-## 6. Editor locale (alternativa offline)
-
-Apri `tools/framemaster_editor.html` (doppio click) in Chrome/Edge.
-
-- **Open project folder…** → scegli la root del progetto → auto-save come la Forge.
-- Su Firefox/Safari: usa i file picker e poi **Export JSON** → copia a mano in `data/framemaster/` e aggiungi riga in `FM_Animations.json`.
-
-Funzioni identiche alla Forge, senza tab Battle Sets / export GIF (quelli sono solo online).
+### 5.5 Layer Strip (visual test)
+Below the preview you will find **Layers:** 3 fields. Write an **animation ID** or a **suffix** like `_iron`. Example base `hero_walk` + `_iron` → preview `hero_walk_iron` overlaid on the same frameIndex. This is only to check alignment (real layers live in game state, not in the animation file).
 
 ---
 
-## 7. Importare da Aseprite
+## 6. Local Editor (Offline Alternative)
 
-1. In Aseprite: **File → Export Sprite Sheet** → JSON **Array** (o Hash) + PNG.
-2. In Forge: **Import JSON** → seleziona il JSON di Aseprite.
-3. La Forge crea **una animazione per ogni `frameTag`** (se presenti) o una singola altrimenti. `duration` in ms viene convertito in frame (`*60/1000`), `frame.x/y/w/h` diventa `rect`, `meta.image` diventa `source`.
+Open `tools/framemaster_editor.html` (double-click) in Chrome/Edge.
 
-> Se il nome sheet in `meta.image` non coincide con il PNG caricato, rinomina il PNG o carica quello giusto.
+- **Open project folder…** → choose the project root → auto-save like the Forge.
+- On Firefox/Safari: use the file pickers and then **Export JSON** → manually copy to `data/framemaster/` and add a line in `FM_Animations.json`.
 
----
-
-## 8. Anteprima in gioco (tasto F8)
-
-In **Playtest**, sulla mappa premi **F8** (configurabile nei parametri):
-
-- Lista a sinistra: tutte le animazioni, select con frecce.
-- Centro: preview 2× con sfondo a scacchiera.
-- Destra: proprietà del frame corrente + pannello **Diagnosis** se la lista è vuota.
-- Controlli: **Su/Giù** cambia animazione, **OK (Z/Spazio/Invio)** play/pausa, **PagSu/PagGiù** velocità, **Esc / Tasto destro** esci.
-
-**Se vedi 0 animazioni:** leggi il pannello a destra: ti dice il file esatto mancante (`data/framemaster/FM_Animations.json` o `xxx.json` con tipo `missing/invalid-json/bad data`), la cartella immagini `img/framemaster/` e il percorso `From:` da cui il gioco è partito (per scovare la cartella sbagliata).
+Same features as the Forge, without Battle Sets tab / GIF export (online only).
 
 ---
 
-## 9. Impostazioni Plugin (Parameters)
+## 7. Import from Aseprite
 
-Nel **Plugin Manager** cliccando su FrameMaster:
+1. In Aseprite: **File → Export Sprite Sheet** → JSON **Array** (or Hash) + PNG.
+2. In Forge: **Import JSON** → select the Aseprite JSON.
+3. The Forge creates **one animation per `frameTag`** (if present) or a single one otherwise. `duration` in ms is converted to frames (`*60/1000`), `frame.x/y/w/h` becomes `rect`, `meta.image` becomes `source`.
 
-| Parametro | Default | Cosa fa |
+> If the sheet name in `meta.image` does not match the uploaded PNG, rename the PNG or upload the correct one.
+
+---
+
+## 8. In-Game Preview (F8 Key)
+
+In **Playtest**, on the map press **F8** (configurable in parameters):
+
+- List on the left: all animations, select with arrows.
+- Center: 2× preview with checkerboard background.
+- Right: current frame properties + **Diagnosis** panel if the list is empty.
+- Controls: **Up/Down** change animation, **OK (Z/Space/Enter)** play/pause, **PageUp/PageDown** speed, **Esc / Right Click** exit.
+
+**If you see 0 animations:** read the panel on the right: it tells you the exact missing file (`data/framemaster/FM_Animations.json` or `xxx.json` with type `missing/invalid-json/bad data`), the images folder `img/framemaster/` and the `From:` path where the game was launched from (to spot the wrong folder).
+
+---
+
+## 9. Plugin Settings (Parameters)
+
+In **Plugin Manager** clicking on FrameMaster:
+
+| Parameter | Default | What it does |
 |---|---|---|
-| **Default Blend (ms)** | 120 | Dissolvenza incrociata quando passi da un'animazione FM a un'altra. 0 = stacco secco. Usato se il comando lascia Blend a `-1`. |
-| **Preload On Map Load** | true | Precarica le immagini delle animazioni **vicine al player** (raggio 26 tile su mappe grandi) all'ingresso mappa. Evita scatti al primo play. Su mappe piccole con ≤24 animazioni precarica tutto. Cache LRU 220 bitmap. |
-| **Debug Log** | false | Stampa in console (F12) info utili (anim caricate, warning). Accendilo mentre configuri, spegnilo in release. |
-| **Preview Key** | F8 | Tasto che apre la scena F8 in playtest. `none` lo disabilita. |
+| **Default Blend (ms)** | 120 | Crossfade when switching from one FM animation to another. 0 = hard cut. Used if the command leaves Blend at `-1`. |
+| **Preload On Map Load** | true | Preloads images of animations **near the player** (26 tile radius on large maps) on map entry. Prevents hitch on first play. On small maps with ≤24 animations it preloads all. LRU cache 220 bitmaps. |
+| **Debug Log** | false | Prints useful info to console (F12) (loaded anims, warnings). Turn on while setting up, off for release. |
+| **Preview Key** | F8 | Key that opens the F8 scene in playtest. `none` disables it. |
 
 ---
 
-## 10. Comandi Plugin — panoramica
+## 10. Plugin Commands — Overview
 
-Tutti in **Evento → Plugin Command → FrameMaster** (e `FrameMasterPRO` per compatibilità, ora alias).
+All under **Event → Plugin Command → FrameMaster** (and `FrameMasterPRO` for compatibility, now alias).
 
-| Comando | A cosa serve | Quando usarlo |
+| Command | What it does | When to use it |
 |---|---|---|
-| **Play** | Fa partire un'animazione su Player/Evento | Cutscene, interazione, possesso |
-| **Stop** | Ferma e torna allo sprite originale | Fine cutscene |
-| **TransitionTo** | Cambia animazione con crossfade, mantenendo velocità | Cambio stato fluido |
-| **OpenPreview** | Apre la scena F8 da evento | Debug in gioco |
-| **AutoPlay / AutoStop** | Auto-pilot: idle/camminata automatici | Mappe esplorabili (vedi cap.12) |
-| **PlayBattler / StopBattler** | Anima un battler in battaglia | Skill, colpi |
-| **PlayPicture / StopPicture** | Anima una Picture (Show Picture prima) | HUD animati, effetti schermo |
-| **BattleSetup** | Assegna un Battle Set ai battler | Inizio battaglia (vedi cap.15) |
-| **LayerSet / LayerClear** | Aggiunge/rimuove layer visivi | Equipaggiamento (vedi cap.13) |
-| **PlayOnce / PlayBattlerOnce / PlayPictureOnce** | Azione singola che poi torna da sola | Emote, apertura baule, hit flash |
+| **Play** | Plays an animation on Player/Event | Cutscene, interaction, possession |
+| **Stop** | Stops and returns to original sprite | End of cutscene |
+| **TransitionTo** | Changes animation with crossfade, keeping speed | Smooth state change |
+| **OpenPreview** | Opens the F8 scene from an event | In-game debug |
+| **AutoPlay / AutoStop** | Auto-pilot: automatic idle/walk | Explorable maps (see ch.12) |
+| **PlayBattler / StopBattler** | Animates a battler in battle | Skills, hits |
+| **PlayPicture / StopPicture** | Animates a Picture (Show Picture first) | Animated HUD, screen effects |
+| **BattleSetup** | Assigns a Battle Set to battlers | Battle start (see ch.15) |
+| **LayerSet / LayerClear** | Adds/removes visual layers | Equipment (see ch.13) |
+| **PlayOnce / PlayBattlerOnce / PlayPictureOnce** | Single action that returns automatically | Emotes, chest opening, hit flash |
 
-> **Target:** `Player` = giocatore, `This Event` = l'evento che esegue il comando, `Event ID` = numero. Negli Script usa `$gamePlayer`, `$gameMap.event(n)` o `this._eventId`.
+> **Target:** `Player` = player, `This Event` = the event running the command, `Event ID` = number. In Scripts use `$gamePlayer`, `$gameMap.event(n)` or `this._eventId`.
 
 ---
 
-## 11. Comandi Personaggi (Mappa) — dettaglio
+## 11. Character Commands (Map) — Details
 
 ### Play
-- **Animation ID:** lo slug esatto (case sensitive) che vedi in F8, es. `slime_idle`.
-- **Loop Override:** `File Default` = usa il loop del file, `Loop` / `Play Once` lo forza.
-- **Speed:** moltiplicatore (2.0 = doppio).
-- **Blend:** ms di dissolvenza. `-1` = Default Blend. Da nativo a FM è sempre stacco secco.
+- **Animation ID:** the exact slug (case sensitive) you see in F8, e.g. `slime_idle`.
+- **Loop Override:** `File Default` = use file's loop, `Loop` / `Play Once` forces it.
+- **Speed:** multiplier (2.0 = double).
+- **Blend:** fade ms. `-1` = Default Blend. From native to FM is always hard cut.
 
-*Esempio:* Evento con Trigger **Action Button** → Plugin Command **Play** → Target `This Event` → Animation `slime_idle` → premi Z davanti al PNG.
+*Example:* Event with Trigger **Action Button** → Plugin Command **Play** → Target `This Event` → Animation `slime_idle` → press Z in front of the sprite.
 
 ### Stop
-Ripristina il charset originale. Se c'era un Auto-Pilot, **Stop lo riattiva**.
+Restores the original charset. If there was an Auto-Pilot, **Stop resumes it**.
 
 ### TransitionTo
-Come Play ma tieni la velocità precedente. Utile per `idle → walk` senza scatti.
+Like Play but keeps the previous speed. Useful for `idle → walk` without stutter.
 
 ---
 
 ## 12. Auto-Pilot (Godot-style)
 
-**Idea:** assegni una volta una mappatura, poi il personaggio si anima da solo: **fermo = idle, in movimento = walk, in scatto = dash**.
+**Idea:** you assign a mapping once, then the character animates itself: **standing = idle, moving = walk, dashing = dash**.
 
-### Setup (3 click, zero codice)
-1. Crea un **Evento Autorun** nella mappa iniziale.
-2. Plugin Command → **AutoPlay** → compila:
+### Setup (3 clicks, no code)
+1. Create an **Autorun Event** on the starting map.
+2. Plugin Command → **AutoPlay** → fill:
    - **Target:** `Player`
-   - **Idle:** `hero_idle`  · **Walk:** `hero_walk` (minimo 1 dei due)
-   - **Dash:** `hero_run` (opzionale, se vuoto usa Walk)
-   - **IdleDown/Up/Left/Right** e **WalkDown/.../WalkRight** e **4 diagonali** `WalkDownLeft` ecc. opzionali — vuoti = usano Idle/Walk base, sempre fallback allo sprite originale se manca.
+   - **Idle:** `hero_idle`  · **Walk:** `hero_walk` (at least one of them)
+   - **Dash:** `hero_run` (optional, if empty it uses Walk)
+   - **IdleDown/Up/Left/Right** and **WalkDown/.../WalkRight** and **4 diagonals** `WalkDownLeft` etc. optional — empty = uses base Idle/Walk, always fallback to original sprite if missing.
    - **Blend:** `-1`
-3. Sotto aggiungi **Erase Event** (l'Autorun parte una volta e sparisce).
+3. Below add **Erase Event** (Autorun runs once and disappears).
 
-Da lì: fermo → idle, cammini → walk, dash → dash. Le diagonali sono rilevate da **vettore** `realX/Y - x/y`, quindi funzionano con qualsiasi mover pixel (Altimit, Rosedale, Half Move) senza marker.
+From then on: standing → idle, walking → walk, dashing → dash. Diagonals are detected via **vector** `realX/Y - x/y`, so they work with any pixel mover (Altimit, Rosedale, Half Move) without markers.
 
-**Regole:**
-- **Play** mette in **pausa** l'auto-pilot (per cutscene) → **Stop** lo **riprende**, **AutoStop** lo **spegne**.
-- **PlayOnce** (cap.16) non lo mette in pausa permanente: dopo torna da solo.
-- La mappatura si **salva** con il save.
+**Rules:**
+- **Play** **pauses** the auto-pilot (for cutscenes) → **Stop** **resumes** it, **AutoStop** **turns it off**.
+- **PlayOnce** (ch.16) does not pause it permanently: it returns automatically.
+- The mapping is **saved** with the save file.
 
 ---
 
-## 13. Layer — Equipaggiamento Visivo
+## 13. Layers — Visual Equipment
 
-**Concetto:** un'animazione base + **stack di layer** che condividono lo stesso `frameIndex` (lockstep). Due tipi:
+**Concept:** one base animation + **stack of layers** sharing the same `frameIndex` (lockstep). Two kinds:
 
-- **Suffix** (equip che segue): `{slot:"weapon", suffix:"_iron"}` → base `hero_walk` disegna `hero_walk_iron`, base `hero_idle` disegna `hero_idle_iron`. Automatico su auto-pilot, blend e stati battaglia. Variante mancante = slot nascosto lì, nessun errore.
-- **Fixed** (overlay): `{slot:"halo", anim:"halo_loop"}` — qualsiasi animazione.
+- **Suffix** (following equip): `{slot:"weapon", suffix:"_iron"}` → base `hero_walk` draws `hero_walk_iron`, base `hero_idle` draws `hero_idle_iron`. Automatic across auto-pilot, blends and battle states. Missing variant = slot hidden there, no error.
+- **Fixed** (overlay): `{slot:"halo", anim:"halo_loop"}` — any animation.
 
-Max **8 layer**, `dx/dy` per nudge in pixel, lockstep sul tempo della base.
+Max **8 layers**, `dx/dy` for pixel nudge, lockstep on base timing.
 
-### A. Automatico da Database (consigliato)
-Tagga armi/armature nel **Database → Nota**:
+### A. Automatic from Database (recommended)
+Tag weapons/armors in **Database → Note**:
 ```
 <fm-layer:weapon:_iron>
 <fm-layer:cape:_red>
 ```
-Equippaggi → il layer appare, disequippaggi → sparisce. I `LayerSet` manuali sopravvivono ai cambi equip. Player = leader del party, Follower = proprio actor, Battler = stesso actor in battaglia (`actor _mainSprite` / `enemy self`) — la spada resta anche sull'attacco.
+Equip → layer appears, unequip → disappears. Manual `LayerSet` entries survive equip changes. Player = party leader, Follower = its actor, Battler = same actor in battle (`actor _mainSprite` / `enemy self`) — sword stays on the slash too.
 
-### B. Manuale via comandi
-- **LayerSet:** `Target` + `Slot` (es. `weapon`) + `Kind` = `Suffix` o `Fixed` + `Value` (`_iron` o `halo_loop`) + `dx/dy`.
-- **LayerClear:** `Slot` pieno = svuota uno slot, vuoto = svuota tutti.
+### B. Manual via commands
+- **LayerSet:** `Target` + `Slot` (e.g. `weapon`) + `Kind` = `Suffix` or `Fixed` + `Value` (`_iron` or `halo_loop`) + `dx/dy`.
+- **LayerClear:** `Slot` filled = clears one slot, empty = clears all.
 
-### C. API (per eventi Script o altri plugin)
+### C. API (for Script events or other plugins)
 ```js
 $gameFrameMaster.setLayers($gamePlayer, [{slot:"weapon", suffix:"_iron"}]);
-$gameFrameMaster.clearLayers($gamePlayer, "weapon"); // o senza slot = tutti
+$gameFrameMaster.clearLayers($gamePlayer, "weapon"); // or without slot = all
 $gameFrameMaster.getLayers($gamePlayer); // [{slot,suffix,anim,dx,dy}]
 ```
-Altri plugin possono iniettare layer senza toccare i save:
+Other plugins can inject layers without touching saves:
 ```js
 FrameMaster.registerLayerProvider("myAura", ch => {
   if (ch === $gamePlayer && $gameSwitches.value(10))
@@ -272,70 +272,70 @@ FrameMaster.registerLayerProvider("myAura", ch => {
 });
 FrameMaster.unregisterLayerProvider("myAura");
 ```
-I provider sono sanitizzati, dedup (manuale/equip vince) e chiamati ogni frame (tienili leggeri). Supporta coda pre-boot.
+Providers are sanitized, deduped (manual/equip wins) and called every frame (keep them cheap). Supports pre-boot queue.
 
-**Anteprima:** nella Forge, sotto l'anteprima, la riga **Layers:** ti fa provare fino a 3 layer (ID o `_suffix`) in tempo reale — solo test visivo, lo stato vero è in gioco.
+**Preview:** in the Forge, below the preview, the **Layers:** row lets you test up to 3 layers (ID or `_suffix`) in real time — visual test only, real state is in-game.
 
 ---
 
-## 14. Battler e Pictures
+## 14. Battlers and Pictures
 
-### Battler (Actor/Nemici, front e side-view)
-- **PlayBattler / StopBattler:** `Side: Actor/Enemy` + `ID` (Actor = ID database, Enemy = **0-based** troop order: primo nemico = 0) + `Animation` + `Loop/Speed/Blend`.
-- Hit-flash, popup danni, stati e collapse restano sopra i frame FM. L'arma dell'actor si nasconde mentre FM lo guida e torna alla prossima motion arma.
-- API: `playBattler(battler, animId, opts)` dove battler è istanza (`$gameActors.actor(1)`, `$gameTroop.members()[0]`) o stringa `"actor:1"` / `"enemy:0"`. Anche `transitionBattler`, `getBattlerFrame` / `isBattlerPlaying` / `getBattlerAnimation`.
+### Battlers (Actors/Enemies, front and side-view)
+- **PlayBattler / StopBattler:** `Side: Actor/Enemy` + `ID` (Actor = database ID, Enemy = **0-based** troop order: first enemy = 0) + `Animation` + `Loop/Speed/Blend`.
+- Hit-flash, damage popups, states and collapse stay on top of FM frames. Actor's weapon hides while FM drives it and returns on next weapon motion.
+- API: `playBattler(battler, animId, opts)` where battler is instance (`$gameActors.actor(1)`, `$gameTroop.members()[0]`) or string `"actor:1"` / `"enemy:0"`. Also `transitionBattler`, `getBattlerFrame` / `isBattlerPlaying` / `getBattlerAnimation`.
 
 ### Pictures
-- **PlayPicture / StopPicture:** `Picture ID 1–100` (devi aver fatto **Show Picture** prima) + animazione. Posizione/scala/rotazione/opacità/tono restano nativi, cambia solo il contenuto.
-- API: `playPicture(idOrPicture, animId, opts)` / `transitionPicture` / ecc.
+- **PlayPicture / StopPicture:** `Picture ID 1–100` (you must have done **Show Picture** first) + animation. Position/scale/rotation/opacity/tone stay native, only content changes.
+- API: `playPicture(idOrPicture, animId, opts)` / `transitionPicture` / etc.
 
-> **Blend:** FM → FM crossfada, nativo → FM è stacco secco (regola LITE-wide).
+> **Blend:** FM → FM crossfades, native → FM is hard cut (LITE-wide rule).
 
 ---
 
-## 15. Battle Director (stati di battaglia)
+## 15. Battle Director (Battle States)
 
-Costruisci un **Battle Set** nella Forge (**tab Battle Sets**): mappa momenti di battaglia → ID animazioni — `idle`, `appear`, `attack1/2/3`, `skill`, `item`, `defend`, `hit`, `evade`, `die`, `victory` + **fasi HP** che cambiano tutto il set (forme boss).
+Build a **Battle Set** in the Forge (**Battle Sets tab**): map battle moments → animation IDs — `idle`, `appear`, `attack1/2/3`, `skill`, `item`, `defend`, `hit`, `evade`, `die`, `victory` + **HP phases** that swap the whole set (boss forms).
 
-| Momento | Quando parte | Comportamento |
+| Moment | When it triggers | Behavior |
 |---|---|---|
-| `appear` | Inizio battaglia (se assegnato) | Una volta, poi idle |
-| `idle` | Fermo / dopo ogni one-shot | Loop |
-| `attack1-3` | Il battler agisce (Attack) | Una volta, poi idle. Pick: cycle 1→2→3, random, first |
-| `skill` / `item` | Skill / Oggetto | Una volta, poi idle |
-| `defend` | Guard | Loop come stance fino a rimpiazzo |
-| `hit` | Subisce danno (e sopravvive) | Una volta, poi idle |
-| `evade` | Schiva (fisico/magico) | Una volta, poi idle |
-| `die` | Collassa | Una volta sopra il fade, poi rilasciato |
-| `victory` | Party vince (actor) | Loop fino a fine battaglia |
+| `appear` | Battle start (if assigned) | Once, then idle |
+| `idle` | Standing / after every one-shot | Loop |
+| `attack1-3` | Battler acts (Attack) | Once, then idle. Pick: cycle 1→2→3, random, first |
+| `skill` / `item` | Skill / Item | Once, then idle |
+| `defend` | Guard | Loop as stance until replaced |
+| `hit` | Takes damage (and survives) | Once, then idle |
+| `evade` | Dodges (physical/magical) | Once, then idle |
+| `die` | Collapses | Once over fade, then released |
+| `victory` | Party wins (actor) | Loop until battle ends |
 
-Vuoto = comportamento nativo per quel momento (motion SV, collapse...).
+Empty = native behavior for that moment (SV motions, collapse...).
 
-### Assegnazione (una volta)
+### Assignment (once)
 - **Troop Event, Span: Battle** → `FrameMaster → BattleSetup` → `All Enemies → slime_battle`
-- **Actor:** stesso comando su mappa iniziale (Autorun) → persiste tra battaglie. `Set` vuoto = **clear**.
+- **Actor:** same command on starting map (Autorun) → persists across battles. Empty `Set` = **clear**.
 
 ### API
 ```js
 $gameFrameMaster.assignBattleSet(battler, "slime_battle");
 $gameFrameMaster.clearBattleSet(battler);
 $gameFrameMaster.getBattlerSet(battler);
-$gameFrameMaster.playBattlerState(battler, "hit"); // qualsiasi momento del set
+$gameFrameMaster.playBattlerState(battler, "hit"); // any moment of the set
 ```
 
-Demo: `slime_battle` usa `slime_idle`/`attack`/`hit`/`die`.
+Demo: `slime_battle` uses `slime_idle`/`attack`/`hit`/`die`.
 
 ---
 
-## 16. Azioni Indipendenti — PlayOnce
+## 16. Independent Actions — PlayOnce
 
-Animazioni **usa-e-getta** che non sporcano lo stato permanente:
+**Disposable** animations that do not dirty the permanent state:
 
-- **PlayOnce** su character, **PlayBattlerOnce**, **PlayPictureOnce**: giocano **una volta** (`loop` forzato off) e poi tornano da soli — se c'è Auto-Pilot torna a idle/walk, altrimenti al charset/immagine nativo. Callback `onComplete` chainabile.
+- **PlayOnce** on character, **PlayBattlerOnce**, **PlayPictureOnce**: play **once** (`loop` forced off) and then return automatically — if there is Auto-Pilot it returns to idle/walk, otherwise to native charset/image. `onComplete` callback chainable.
 
-*Esempio:* Evento baule → `PlayOnce` → `chest_open` su This Event → resta aperto fino a `Stop` esplicito? No: con PlayOnce torna da solo dopo l'apertura (per farlo restare aperto usa `Play` normale con `Loop: false`).
+*Example:* Chest event → `PlayOnce` → `chest_open` on This Event → should stay open until explicit `Stop`? No: with PlayOnce it returns automatically after opening (to stay open use normal `Play` with `Loop: false`).
 
-Comandi hanno solo `Speed` e `Blend` (loop è implicito). API:
+Commands only have `Speed` and `Blend` (loop is implicit). API:
 ```js
 $gameFrameMaster.playOnce($gamePlayer, "emote_wave", {speed:1.2});
 $gameFrameMaster.playBattlerOnce($gameActors.actor(1), "skill_fire");
@@ -343,17 +343,17 @@ $gameFrameMaster.playBattlerOnce($gameActors.actor(1), "skill_fire");
 
 ---
 
-## 17. Script API (per chi usa codice)
+## 17. Script API (For Coders)
 
 ```js
-// Personaggi mappa
+// Map characters
 $gameFrameMaster.play($gameMap.event(3), "slime_idle");
 $gameFrameMaster.play($gamePlayer, "hero_run", {speed:1.5, blend:200, loop:false, onComplete:()=> $gameSwitches.setValue(10,true)});
 $gameFrameMaster.stop($gameMap.event(3));
 $gameFrameMaster.transitionTo($gamePlayer, "hero_idle", 300);
 $gameFrameMaster.getCurrentFrame($gamePlayer);     // 0-based, -1 = none
 $gameFrameMaster.isPlaying($gamePlayer);
-$gameFrameMaster.getCurrentAnimation($gamePlayer); // "hero_run" o null
+$gameFrameMaster.getCurrentAnimation($gamePlayer); // "hero_run" or null
 $gameFrameMaster.listAnimations();                 // [{id,name,frames,loop}]
 $gameFrameMaster.isReady();
 $gameFrameMaster.setAuto($gamePlayer, {idle:"hero_idle", walk:"hero_walk", walkDownLeft:"hero_dl"});
@@ -373,45 +373,45 @@ $gameFrameMaster.setLayers($gamePlayer, [{slot:"weapon", suffix:"_iron", dx:0, d
 FrameMaster.registerLayerProvider("myId", ch => ({slot:"aura", anim:"aura_loop"}));
 ```
 
-Dentro uno **Script di evento**, `this._eventId` è l'evento corrente, quindi `$gameMap.event(this._eventId)` punta a *questo evento*.
+Inside an **Event Script**, `this._eventId` is the current event, so `$gameMap.event(this._eventId)` points to *this event*.
 
 ---
 
-## 18. Formati Immagine, Peso e Preload
+## 18. Image Formats, Weight and Preload
 
-- **Formati:** `.png` e **`.webp`** (60-80% più piccolo a pari qualità). Basta usare `name.webp` nei frame — la Forge li accetta/droppa entrambi, il pack li include, il runtime usa `loadBitmapFromUrl` per `.webp`.
-- **Cache LRU 220 bitmap:** evita OOM con centinaia di frame; i meno recenti vengono scartati.
-- **Preload di prossimità:** all'ingresso mappa (se `PreloadOnMapLoad` ON) precarica solo le immagini **vicine al player** (raggio 26 tile su mappe grandi, tutti su mappe piccole) per `state`/`auto`/`layers`/`battle set`. Su mappe enormi non precarica tutto.
-- **Deploy cifrato:** escludi `img/framemaster/` dalla cifratura, o tieni il preload ON.
-
----
-
-## 19. API per Altri Plugin (Compatibilità)
-
-FrameMaster è **alias-chained** (mai sovrascritto) su `Sprite_Character`, `Sprite_Actor/Enemy/Picture`, `Game_Battler`. Mettilo **sotto** altri plugin visivi.
-
-Matrice completa: vedi `doc/COMPATIBILITY.md`.
-
-Hook pubblico principale: `FrameMaster.registerLayerProvider` (vedi cap.13). Altri hook (auto, battle) sono interni ma stabili: chiedi se ti serve un provider custom.
+- **Formats:** `.png` and **`.webp`** (60-80% smaller for same quality). Just use `name.webp` in frames — the Forge accepts/drops both, the pack includes them, runtime uses `loadBitmapFromUrl` for `.webp`.
+- **LRU Cache 220 bitmaps:** prevents OOM with hundreds of frames; least recent are discarded.
+- **Proximity Preload:** on map entry (if `PreloadOnMapLoad` ON) it preloads only images **near the player** (26 tile radius on large maps, all on small maps) for `state`/`auto`/`layers`/`battle set`. On huge maps it does not preload everything.
+- **Encrypted deploy:** exclude `img/framemaster/` from encryption, or keep preload ON.
 
 ---
 
-## 20. Risoluzione Problemi (Troubleshooting)
+## 19. API for Other Plugins (Compatibility)
 
-| Sintomo | Causa → Soluzione |
+FrameMaster is **alias-chained** (never overwritten) on `Sprite_Character`, `Sprite_Actor/Enemy/Picture`, `Game_Battler`. Place it **below** other visual plugins.
+
+Full matrix: see `doc/COMPATIBILITY.md`.
+
+Main public hook: `FrameMaster.registerLayerProvider` (see ch.13). Other hooks (auto, battle) are internal but stable: ask if you need a custom provider.
+
+---
+
+## 20. Troubleshooting
+
+| Symptom | Cause → Solution |
 |---|---|
-| `0 animations` + `Registry: MISSING` in F8 | Cartella sbagliata. Scompatta il pack **nella root** del progetto (es. `Coop/data/framemaster/` non `Coop/framemaster_pack/data/...`). |
-| `Could not load animation file "data/framemaster/xxx.json"` | Nome file con maiuscole diverse o JSON rotto. Riesporta dalla Forge. |
-| `f1.png.png` in console | Vecchio bug `.png.png` — aggiorna `FrameMaster.js` a v2.3.0+. |
-| F8 non si chiudeva | Fixato in v1.2.1 → `activate()` della lista. Aggiorna. |
-| `From: chrome-extension://...` in diagnosi | Stai lanciando il gioco da un'estensione, non da Playtest dell'editor. Usa **Play** dell'editor. |
-| F8 resta su `loading…` | Bug di ricreazione dopo New Game — fixato da v1.2.1 (carry-over registry). Aggiorna. |
-| Arma non segue in battaglia | Normal: arma si nasconde durante FM actor e torna alla prossima motion arma. Per layer arma in battaglia usa i **Layer** (suffix), non dipende dall'arma sprite. |
-| Auto-pilot non cambia in diagonale | Imposta `WalkDownLeft` ecc. e usa un mover che imposta `direction` 1/3/7/9 o `realX/Y` (Altimit). Altrimenti usa `walk` base. |
-| `.webp` non si vede | File mancante in `img/framemaster/` o nome con estensione sbagliata. Controlla console con `Debug Log` ON. |
+| `0 animations` + `Registry: MISSING` in F8 | Wrong folder. Unzip the pack **into the project root** (e.g. `Coop/data/framemaster/` not `Coop/framemaster_pack/data/...`). |
+| `Could not load animation file "data/framemaster/xxx.json"` | File name with different case or broken JSON. Re-export from Forge. |
+| `f1.png.png` in console | Old `.png.png` bug — update `FrameMaster.js` to v2.3.0+. |
+| F8 did not close | Fixed in v1.2.1 → `activate()` of the list. Update. |
+| `From: chrome-extension://...` in diagnosis | You are launching the game from an extension, not from the editor's Playtest. Use the editor's **Play**. |
+| F8 stays on `loading…` | Recreation bug after New Game — fixed since v1.2.1 (carry-over registry). Update. |
+| Weapon does not follow in battle | Normal: weapon hides during FM actor and returns on next weapon motion. For weapon layer in battle use **Layers** (suffix), it does not depend on weapon sprite. |
+| Auto-pilot does not change diagonally | Set `WalkDownLeft` etc. and use a mover that sets `direction` 1/3/7/9 or `realX/Y` (Altimit). Otherwise it uses base `walk`. |
+| `.webp` not showing | Missing file in `img/framemaster/` or wrong extension. Check console with `Debug Log` ON. |
 
-Se resti bloccato, apri **F8** e leggi il pannello **Diagnosis** a destra: ti dice il file esatto (`missing/invalid-json/bad data`), la cartella `img/framemaster/` e il percorso `From:`.
+If you are stuck, open **F8** and read the **Diagnosis** panel on the right: it tells you the exact file (`missing/invalid-json/bad data`), the `img/framemaster/` folder and the `From:` path.
 
 ---
 
-*Fine guida. Per aggiornamenti: https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin — Forge: https://rpxgames.win/tools/framemaster/*
+*End of guide. For updates: https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin — Forge: https://rpxgames.win/tools/framemaster/*
