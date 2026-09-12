@@ -1,0 +1,3 @@
+# Plugin file is now distributed separately (release asset).
+# Keep it locally for dev/Coop sync, but don't track in this docs repo.
+FrameMaster.js

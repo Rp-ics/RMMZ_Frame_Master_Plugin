@@ -5,7 +5,7 @@ unlimited frames, visual editors, automatic states, one-click exports.
 
 - 🎞️ **Live Animation Forge (no install): https://rpxgames.win/tools/framemaster/**
 - 📦 Repository: https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin
-- 📖 Full manual: `doc/FrameMaster_HELP.md` · Compatibility: `doc/COMPATIBILITY.md`
+- 📖 Full manual: `doc/FrameMaster_HELP.md` · Guida completa (ITA): `GUIDE.md` · Compatibility: `doc/COMPATIBILITY.md`
 
 ## Editions
 
