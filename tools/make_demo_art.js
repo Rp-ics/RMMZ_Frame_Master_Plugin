@@ -131,4 +131,50 @@ for (let n = 0; n < 6; n++) {
   }
 }
 fs.writeFileSync(OUT + "hero_run_sheet.png", png(288, 48, sheet.px));
+function xEyes(c, x1, x2, y) {
+  for (const ex of [x1, x2]) {
+    thickLine(c, ex - 2, y - 2, ex + 2, y + 2, 1, EYE);
+    thickLine(c, ex - 2, y + 2, ex + 2, y - 2, 1, EYE);
+  }
+}
+function slimeBase(c, cx, cy, rx, ry, eyes) {
+  blob(c, cx, cy, rx + 2, ry + 2, DARK);
+  blob(c, cx, cy, rx, ry, BODY);
+  blob(c, cx - 6, cy - 5, 4, 3, LITE);
+  if (eyes === "x") xEyes(c, cx - 5, cx + 5, cy - 2);
+  else if (eyes === "shut") {
+    thickLine(c, cx - 7, cy - 2, cx - 3, cy - 2, 1, EYE);
+    thickLine(c, cx + 3, cy - 2, cx + 7, cy - 2, 1, EYE);
+  } else {
+    blob(c, cx - 5, cy - 2, 2, 3, EYE);
+    blob(c, cx + 5, cy - 2, 2, 3, EYE);
+  }
+}
+// Battle moves: lunge (attack), squash (hit), puddle (die).
+{
+  const a0 = canvas(48, 48);
+  slimeBase(a0, 24, 30, 13, 11, "open");
+  fs.writeFileSync(OUT + "satk_0.png", png(48, 48, a0.px));
+  const a1 = canvas(48, 48);
+  slimeBase(a1, 28, 32, 17, 8, "open");
+  fs.writeFileSync(OUT + "satk_1.png", png(48, 48, a1.px));
+  const a2 = canvas(48, 48);
+  slimeBase(a2, 26, 30, 14, 10, "open");
+  fs.writeFileSync(OUT + "satk_2.png", png(48, 48, a2.px));
+  const h0 = canvas(48, 48);
+  slimeBase(h0, 24, 34, 15, 7, "x");
+  fs.writeFileSync(OUT + "shit_0.png", png(48, 48, h0.px));
+  const h1 = canvas(48, 48);
+  slimeBase(h1, 24, 30, 13, 11, "shut");
+  fs.writeFileSync(OUT + "shit_1.png", png(48, 48, h1.px));
+  const d0 = canvas(48, 48);
+  slimeBase(d0, 24, 33, 14, 8, "x");
+  fs.writeFileSync(OUT + "sdie_0.png", png(48, 48, d0.px));
+  const d1 = canvas(48, 48);
+  slimeBase(d1, 24, 36, 16, 6, "x");
+  fs.writeFileSync(OUT + "sdie_1.png", png(48, 48, d1.px));
+  const d2 = canvas(48, 48);
+  slimeBase(d2, 24, 40, 18, 4, "x");
+  fs.writeFileSync(OUT + "sdie_2.png", png(48, 48, d2.px));
+}
 console.log("demo art written");

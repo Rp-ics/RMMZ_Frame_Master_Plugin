@@ -1,0 +1,15 @@
+{
+  "id": "slime_die",
+  "name": "Slime Die",
+  "version": 1,
+  "loop": true,
+  "loopFrom": 0,
+  "baseSpeed": 1.0,
+  "anchorX": 0.5,
+  "anchorY": 1.0,
+  "frames": [
+    { "img": "sdie_0.png", "source": null, "rect": null, "duration": 8, "events": [] },
+    { "img": "sdie_1.png", "source": null, "rect": null, "duration": 8, "events": [] },
+    { "img": "sdie_2.png", "source": null, "rect": null, "duration": 8, "events": [] }
+  ]
+}

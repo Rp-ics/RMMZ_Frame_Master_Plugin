@@ -7,11 +7,20 @@ unlimited frames, visual editors, automatic states, one-click exports.
 - 📦 Repository: https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin
 - 📖 Full manual: `doc/FrameMaster_HELP.md`
 
-## Features (v1.2.0)
+## Editions
+
+One edition: **everything free** (since v2.0.0 the ex-PRO battlers,
+pictures, script events and battle director are all included).
+
+## Features (v2.3.0)
 
 - **Unlimited frames** per animation (no more 3-frame limit), single PNGs
   or sprite-sheet slicing with grid preview
-- **Loop modes**: normal, ping-pong (forwards-backwards), random
+- **Layers / visual equipment**: suffix layers follow the base animation
+  (`hero_walk` + `_iron`), fixed overlays for anything else, DB note-tag
+  auto-equip (`<fm-layer:weapon:_iron>`), offsets, **battler layers in
+  battle**, lockstep timing
+- **8-direction auto-pilot**: vettore diagonale in pixel movement (Altimit,
 - **Auto-pilot**: idle when stopped, walk when moving, dash when dashing,
   plus per-direction variants — set once via Plugin Command, runs forever
 - **Frame events**: SE, Common Event, Switch fired automatically per frame

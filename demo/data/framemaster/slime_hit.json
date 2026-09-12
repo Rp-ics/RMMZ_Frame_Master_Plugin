@@ -1,0 +1,14 @@
+{
+  "id": "slime_hit",
+  "name": "Slime Hit",
+  "version": 1,
+  "loop": true,
+  "loopFrom": 0,
+  "baseSpeed": 1.0,
+  "anchorX": 0.5,
+  "anchorY": 1.0,
+  "frames": [
+    { "img": "shit_0.png", "source": null, "rect": null, "duration": 6, "events": [] },
+    { "img": "shit_1.png", "source": null, "rect": null, "duration": 6, "events": [] }
+  ]
+}

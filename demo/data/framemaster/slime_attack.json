@@ -1,0 +1,15 @@
+{
+  "id": "slime_attack",
+  "name": "Slime Attack",
+  "version": 1,
+  "loop": true,
+  "loopFrom": 0,
+  "baseSpeed": 1.0,
+  "anchorX": 0.5,
+  "anchorY": 1.0,
+  "frames": [
+    { "img": "satk_0.png", "source": null, "rect": null, "duration": 5, "events": [] },
+    { "img": "satk_1.png", "source": null, "rect": null, "duration": 5, "events": [] },
+    { "img": "satk_2.png", "source": null, "rect": null, "duration": 5, "events": [] }
+  ]
+}

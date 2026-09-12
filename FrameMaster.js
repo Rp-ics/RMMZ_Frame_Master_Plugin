@@ -1,13 +1,13 @@
 /*:
  * @target MZ
  * @title FrameMaster MZ
- * @plugindesc v1.2.0 Unlimited frame-by-frame character animations (Godot-style) with visual editor, auto-pilot states, loop modes, frame events and crossfade blends.
+ * @plugindesc v2.3.0 Unlimited frame-by-frame animation (Godot-style): characters, battlers, pictures, layers, 8-dir auto-pilot, battle director.
  * @author Rpx & Just Dev
  * @url https://github.com/Rp-ics/RMMZ_Frame_Master_Plugin
  *
  * @help
  * ============================================================================
- * FrameMaster MZ v1.2.0 — Godot-style frame-by-frame animation for RMMZ
+ * FrameMaster MZ v2.3.0 — Godot-style frame-by-frame animation for RMMZ
  * ============================================================================
  * Breaks the 3-frame character limit: play animations with UNLIMITED frames
  * on the player and map events. Single PNGs per frame and sprite-sheet
@@ -56,6 +56,16 @@
  *                 Runs by itself until AutoStop; a manual Play pauses it
  *                 and Stop resumes it.
  *  AutoStop       Disable the auto-pilot, restore the normal sprite.
+ *  PlayBattler    Battle actor/enemy plays an animation (side+front view).
+ *  StopBattler    Back to the normal battler sprite.
+ *  PlayPicture    Map picture (by id) plays an animation.
+ *  StopPicture    Back to the picture's own image.
+ *  BattleSetup    Assign a battle set to battlers (director on/off).
+ *  LayerSet       Add a visual layer (equipment suffix or fixed overlay).
+ *  LayerClear     Remove one layer slot, or all layers.
+ *  PlayOnce       Independent one-shot on a character (auto-resumes).
+ *  PlayBattlerOnce One-shot on a battler, then native sprite.
+ *  PlayPictureOnce One-shot on a picture, then own image.
  *
  * ----------------------------------------------------------------------------
  * AUTO-PILOT (no coding required)
@@ -86,6 +96,7 @@
  *
  *  $gameFrameMaster.stop(character);
  *  $gameFrameMaster.transitionTo(character, newAnimationId, blendDuration);
+ *  $gameFrameMaster.playOnce(character, animationId, options); // one-shot, auto-resumes
  *  $gameFrameMaster.getCurrentFrame(character);      // index, or -1
  *  $gameFrameMaster.isPlaying(character);            // boolean
  *  $gameFrameMaster.getCurrentAnimation(character);  // id string or null
@@ -99,6 +110,24 @@
  *  $gameFrameMaster.clearAuto(character);            // auto-pilot off
  *  $gameFrameMaster.getAuto(character);              // mapping or null
  *  $gameFrameMaster.desiredAutoAnim(character);      // id the auto-pilot wants
+ *  $gameFrameMaster.playBattler(battler, animId, options);   // battler: instance, "actor:1", "enemy:0"
+ *  $gameFrameMaster.stopBattler(battler);
+ *  $gameFrameMaster.transitionBattler(battler, newId, blendMs);
+ *  $gameFrameMaster.playBattlerOnce(battler, animId, options); // one-shot, then native
+ *  $gameFrameMaster.getBattlerFrame / isBattlerPlaying / getBattlerAnimation
+ *  $gameFrameMaster.playPicture(idOrPicture, animId, options); // id 1-100
+ *  $gameFrameMaster.stopPicture(idOrPicture);
+ *  $gameFrameMaster.transitionPicture(idOrPicture, newId, blendMs);
+ *  $gameFrameMaster.playPictureOnce(idOrPicture, animId, options); // one-shot, then own image
+ *  $gameFrameMaster.getPictureFrame / isPicturePlaying / getPictureAnimation
+ *  $gameFrameMaster.assignBattleSet(battler, setId); // battle director set
+ *  $gameFrameMaster.clearBattleSet(battler);
+ *  $gameFrameMaster.playBattlerState(battler, "hit"); // any set moment
+ *  $gameFrameMaster.setLayers(character, [{ slot:"weapon", suffix:"_iron" }]);
+ *  $gameFrameMaster.clearLayers(character, "weapon"); // or no slot = all
+ *  $gameFrameMaster.getLayers(character);            // [{slot,suffix,anim,dx,dy}]
+ *  FrameMaster.registerLayerProvider(id, fn);        // compat hook for other plugins — fn(ch) => layer|layers|null
+ *  FrameMaster.unregisterLayerProvider(id);
  *
  * Frame durations are stored in GAME FRAMES (60 = 1 second). The visual
  * editor also shows milliseconds (ms = frames * 1000 / 60).
@@ -111,6 +140,59 @@
  *            (Loop From is ignored; needs Loop ON, else plays once straight).
  *  random    a different random frame on every step (never repeats twice;
  *            needs Loop ON, else plays once straight).
+ *
+ * ----------------------------------------------------------------------------
+ * BATTLERS & PICTURES (no coding required)
+ * ----------------------------------------------------------------------------
+ *  PlayBattler on an actor ($gameActors.actor id) or enemy (0-based troop
+ *  order): unlimited frames in battle, side-view and front-view. Hit-flash,
+ *  damage popups, states and collapse keep working on top; the actor weapon
+ *  hides while FM drives it. PlayPicture animates a map picture by id
+ *  (Show Picture first): position/scale/rotation/opacity/tone are kept.
+ *  Blends crossfade FM -> FM; native -> FM is a hard cut (LITE-wide rule).
+ *
+ * ----------------------------------------------------------------------------
+ * SCRIPT FRAME-EVENTS
+ * ----------------------------------------------------------------------------
+ *  A frame event { type:"script", code:"..." } (editors: + Script) runs when
+ *  the frame shows, on any owner. Available names: $gameVariables,
+ *  $gameSwitches, $gameSelfSwitches, $gameActors, $gameParty, $gameTroop,
+ *  $gameMap, $gamePlayer, $gameScreen, $gameTemp, $gameMessage, owner, fm.
+ *  Errors log to console and never crash; 5000 chars max per snippet.
+ *
+ * ----------------------------------------------------------------------------
+ * BATTLE DIRECTOR (Godot-style battle states, zero code in game)
+ * ----------------------------------------------------------------------------
+ *  Build a Battle Set in the forge (Battle Sets tab): idle, appear,
+ *  attack1/2/3 (cycle/random/first), skill, item, defend, hit, evade, die,
+ *  victory + HP phases that swap the whole set. Assign once — Troop Event,
+ *  Span Battle -> BattleSetup -> All Enemies (actors: starting-map event) —
+ *  and the director drives everything, returning one-shots to idle by
+ *  itself. Empty moments keep native SV motions.
+ *
+ * ----------------------------------------------------------------------------
+ * LAYERS — visual equipment & overlays (no coding required)
+ * ----------------------------------------------------------------------------
+ *  One base animation + a stack of layers drawn over it, sharing the base
+ *  frame (lockstep). Two layer kinds:
+ *    suffix: { slot:"weapon", suffix:"_iron" } — draws base+suffix
+ *            ("hero_walk"+" _iron" = "hero_walk_iron"); follows idle, walk,
+ *            battle states and blends automatically. Missing variant = the
+ *            slot hides for that base animation, no error.
+ *    fixed:  { slot:"halo", anim:"halo_loop" } — any overlay animation.
+ *  Offsets dx/dy nudge a layer in pixels. Max 8 layers (perf guard).
+ *  Equipment: tag DB weapons/armors with e.g. <fm-layer:weapon:_iron> and
+ *  equipping rebuilds that slot by itself (manual LayerSet survives);
+ *  unequipping clears it. Player = party leader, followers = their actor;
+ *  now with battler layers in battle too (weapon spada visibile).
+ *  In v2.3.0 also on battlers/pictures, lockstep with idle/attack/hit… states.
+ *  Other plugins can inject layers without touching saves:
+ *    FrameMaster.registerLayerProvider("myAura", ch => {
+ *      if (ch === $gamePlayer && $gameSwitches.value(10))
+ *        return { slot:"aura", anim:"aura_loop", dx:0, dy:-8 };
+ *      return null;
+ *    });
+ *  Provider layers are sanitized, deduped (manual/equip wins) and capped at 8.
  *
  * ----------------------------------------------------------------------------
  * FRAME EVENTS (no coding required, set them in the visual editor)
@@ -344,6 +426,26 @@
  *   @type string
  *   @default
  *   @desc Optional: walking right. Empty = use Walk.
+ * @arg walkDownLeft
+ *   @text Walk Down-Left (Diagonal)
+ *   @type string
+ *   @default
+ *   @desc Pixel-movement diagonal. Empty = use Walk.
+ * @arg walkDownRight
+ *   @text Walk Down-Right (Diagonal)
+ *   @type string
+ *   @default
+ *   @desc Pixel-movement diagonal. Empty = use Walk.
+ * @arg walkUpLeft
+ *   @text Walk Up-Left (Diagonal)
+ *   @type string
+ *   @default
+ *   @desc Pixel-movement diagonal. Empty = use Walk.
+ * @arg walkUpRight
+ *   @text Walk Up-Right (Diagonal)
+ *   @type string
+ *   @default
+ *   @desc Pixel-movement diagonal. Empty = use Walk.
  * @arg blend
  *   @text Blend (ms)
  *   @type number
@@ -368,6 +470,305 @@
  *   @type number
  *   @default 1
  *   @desc Used only when Target = Event ID.
+ *
+ * @command PlayBattler
+ * @text Play (Battler)
+ * @desc Play a FrameMaster animation on a battle actor or enemy.
+ * @arg side
+ *   @text Side
+ *   @type select
+ *   @option Actor
+ *   @value actor
+ *   @option Enemy
+ *   @value enemy
+ *   @default enemy
+ * @arg id
+ *   @text Actor ID / Enemy Index
+ *   @type number
+ *   @default 1
+ *   @desc Actor: database ID. Enemy: 0-based troop order (first enemy = 0).
+ * @arg animation
+ *   @text Animation ID
+ *   @type string
+ *   @default idle
+ * @arg loop
+ *   @text Loop Override
+ *   @type select
+ *   @option File Default
+ *   @value default
+ *   @option Loop
+ *   @value true
+ *   @option Play Once
+ *   @value false
+ *   @default default
+ * @arg speed
+ *   @text Speed Multiplier
+ *   @type number
+ *   @default 1.0
+ *   @min 0.1
+ *   @max 8.0
+ *   @decimals 2
+ * @arg blend
+ *   @text Blend (ms)
+ *   @type number
+ *   @default -1
+ *   @desc Crossfade FM -> FM. -1 = Default Blend. Native -> FM is a hard cut.
+ *
+ * @command StopBattler
+ * @text Stop (Battler)
+ * @desc Stop the FM animation, restore the normal battler sprite.
+ * @arg side
+ *   @text Side
+ *   @type select
+ *   @option Actor
+ *   @value actor
+ *   @option Enemy
+ *   @value enemy
+ *   @default enemy
+ * @arg id
+ *   @text Actor ID / Enemy Index
+ *   @type number
+ *   @default 1
+ *   @desc Actor: database ID. Enemy: 0-based troop order (first enemy = 0).
+ *
+ * @command PlayPicture
+ * @text Play (Picture)
+ * @desc Play a FrameMaster animation on a map picture (Show Picture first).
+ * @arg pictureId
+ *   @text Picture ID
+ *   @type number
+ *   @default 1
+ *   @min 1
+ *   @max 100
+ * @arg animation
+ *   @text Animation ID
+ *   @type string
+ *   @default idle
+ * @arg loop
+ *   @text Loop Override
+ *   @type select
+ *   @option File Default
+ *   @value default
+ *   @option Loop
+ *   @value true
+ *   @option Play Once
+ *   @value false
+ *   @default default
+ * @arg speed
+ *   @text Speed Multiplier
+ *   @type number
+ *   @default 1.0
+ *   @min 0.1
+ *   @max 8.0
+ *   @decimals 2
+ * @arg blend
+ *   @text Blend (ms)
+ *   @type number
+ *   @default -1
+ *   @desc Crossfade FM -> FM. -1 = Default Blend. Picture -> FM is a hard cut.
+ *
+ * @command StopPicture
+ * @text Stop (Picture)
+ * @desc Stop the FM animation, restore the picture's own image.
+ * @arg pictureId
+ *   @text Picture ID
+ *   @type number
+ *   @default 1
+ *   @min 1
+ *   @max 100
+ *
+ * @command BattleSetup
+ * @text Battle Setup (Director)
+ * @desc Assign a battle set (idle/attacks/hit/die/…) to battlers. Empty Set = clear assignment. Usually a Troop Event, Span: Battle.
+ * @arg scope
+ *   @text Who
+ *   @type select
+ *   @option One Enemy
+ *   @value enemy
+ *   @option All Enemies
+ *   @value allEnemies
+ *   @option One Actor
+ *   @value actor
+ *   @option All Actors
+ *   @value allActors
+ *   @default allEnemies
+ * @arg id
+ *   @text Enemy Index / Actor ID
+ *   @type number
+ *   @default 0
+ *   @desc Enemy: 0-based troop order (first = 0). Actor: database ID. Ignored for All.
+ * @arg set
+ *   @text Battle Set ID
+ *   @type string
+ *   @default slime_battle
+ *   @desc Battle set from the forge. EMPTY clears the assignment.
+ *
+ * @command LayerSet
+ * @text Set Layer (Equipment/Overlay)
+ * @desc Add a visual layer over the base animation. Suffix layers follow the base animation id; fixed layers play any animation.
+ * @arg target
+ *   @text Target
+ *   @type select
+ *   @option Player
+ *   @value player
+ *   @option This Event
+ *   @value this
+ *   @option Event ID
+ *   @value event
+ *   @default player
+ * @arg eventId
+ *   @text Event ID
+ *   @type number
+ *   @default 1
+ *   @desc Used only when Target = Event ID.
+ * @arg slot
+ *   @text Slot
+ *   @type string
+ *   @default weapon
+ *   @desc Slot name: weapon, armor, helm, cape… Re-setting a slot replaces it.
+ * @arg kind
+ *   @text Kind
+ *   @type select
+ *   @option Suffix (follows base anim)
+ *   @value suffix
+ *   @option Fixed animation
+ *   @value anim
+ *   @default suffix
+ * @arg value
+ *   @text Suffix or Animation ID
+ *   @type string
+ *   @default _iron
+ *   @desc Suffix appended to the base id (e.g. _iron), or a fixed animation id.
+ * @arg dx
+ *   @text Offset X
+ *   @type number
+ *   @default 0
+ *   @min -500
+ *   @max 500
+ * @arg dy
+ *   @text Offset Y (up positive)
+ *   @type number
+ *   @default 0
+ *   @min -500
+ *   @max 500
+ *
+ * @command LayerClear
+ * @text Clear Layers
+ * @desc Remove one layer slot, or every layer when Slot is empty.
+ * @arg target
+ *   @text Target
+ *   @type select
+ *   @option Player
+ *   @value player
+ *   @option This Event
+ *   @value this
+ *   @option Event ID
+ *   @value event
+ *   @default player
+ * @arg eventId
+ *   @text Event ID
+ *   @type number
+ *   @default 1
+ *   @desc Used only when Target = Event ID.
+ * @arg slot
+ *   @text Slot
+ *   @type string
+ *   @default
+ *   @desc Slot to clear. Empty = clear all layers.
+ *
+ * @command PlayOnce
+ * @text Play Once (One-Shot)
+ * @desc Independent one-shot: plays an animation once (loop forced off) and then returns to auto-pilot or native sprite. Perfect for emotes/chest opening.
+ * @arg target
+ *   @text Target
+ *   @type select
+ *   @option Player
+ *   @value player
+ *   @option This Event
+ *   @value this
+ *   @option Event ID
+ *   @value event
+ *   @default player
+ * @arg eventId
+ *   @text Event ID
+ *   @type number
+ *   @default 1
+ *   @desc Used only when Target = Event ID.
+ * @arg animation
+ *   @text Animation ID
+ *   @type string
+ *   @default idle
+ * @arg speed
+ *   @text Speed Multiplier
+ *   @type number
+ *   @default 1.0
+ *   @min 0.1
+ *   @max 8.0
+ *   @decimals 2
+ * @arg blend
+ *   @text Blend (ms)
+ *   @type number
+ *   @default -1
+ *   @desc Crossfade into the one-shot. -1 = Default Blend.
+ *
+ * @command PlayBattlerOnce
+ * @text Play Once (Battler)
+ * @desc One-shot on a battler: plays once then returns to native battler sprite.
+ * @arg side
+ *   @text Side
+ *   @type select
+ *   @option Actor
+ *   @value actor
+ *   @option Enemy
+ *   @value enemy
+ *   @default enemy
+ * @arg id
+ *   @text Actor ID / Enemy Index
+ *   @type number
+ *   @default 1
+ *   @desc Actor: database ID. Enemy: 0-based troop order (first enemy = 0).
+ * @arg animation
+ *   @text Animation ID
+ *   @type string
+ *   @default idle
+ * @arg speed
+ *   @text Speed Multiplier
+ *   @type number
+ *   @default 1.0
+ *   @min 0.1
+ *   @max 8.0
+ *   @decimals 2
+ * @arg blend
+ *   @text Blend (ms)
+ *   @type number
+ *   @default -1
+ *   @desc Crossfade into the one-shot. -1 = Default Blend.
+ *
+ * @command PlayPictureOnce
+ * @text Play Once (Picture)
+ * @desc One-shot on a picture: plays once then returns to the picture's own image.
+ * @arg pictureId
+ *   @text Picture ID
+ *   @type number
+ *   @default 1
+ *   @min 1
+ *   @max 100
+ * @arg animation
+ *   @text Animation ID
+ *   @type string
+ *   @default idle
+ * @arg speed
+ *   @text Speed Multiplier
+ *   @type number
+ *   @default 1.0
+ *   @min 0.1
+ *   @max 8.0
+ *   @decimals 2
+ * @arg blend
+ *   @text Blend (ms)
+ *   @type number
+ *   @default -1
+ *   @desc Crossfade into the one-shot. -1 = Default Blend.
  */
 
 (() => {
@@ -391,6 +792,8 @@ const FM_Config = {
 };
 
 const FM_KEY_CODES = { F5: 116, F6: 117, F7: 118, F8: 119, F9: 120, F10: 121, F11: 122, F12: 123 };
+
+const FM_pendingLayerProviders = [];
 
 function fmLog(...args) {
     if (FM_Config.debugLog && typeof console !== "undefined") {
@@ -454,8 +857,13 @@ function fmSanitizeFrameEvent(ev) {
         if (id <= 0) return null;
         return { type: "switch", id: id, value: !!ev.value };
     }
-    // Unknown future types: ignored with a warning (forward compatibility).
-    fmLog("Ignoring unknown frame event type:", ev.type);
+    // Unknown types (e.g. PRO "script"): preserved verbatim so extensions
+    // can run them. The base runtime ignores them when firing (see below).
+    // NOTE: ev comes from JSON.parse, so it is plain data — safe to keep.
+    if (typeof ev.type === "string" && ev.type) {
+        fmLog("Keeping unknown frame event type for extensions:", ev.type);
+        return { ...ev, type: String(ev.type) };
+    }
     return null;
 }
 
@@ -565,9 +973,16 @@ Game_FrameMaster.prototype.initialize = function() {
     this._registryReady = false;
     this._pendingFiles = 0;
     this._readyCallbacks = [];
-    this._bitmaps = {};        // filename -> Bitmap
+    this._bitmaps = {};        // canonical(lower) -> Bitmap (LRU)
+    this._bitmapOrder = [];    // LRU recency, oldest first
     this._pendingRestore = null; // save/load: event states waiting for map setup
     this._callbacks = new WeakMap(); // character -> onComplete fn (never saved)
+    this._layerProviders = []; // {id, fn} — external layer sources (compat API)
+    if (FM_pendingLayerProviders.length) {
+        for (const p of FM_pendingLayerProviders.splice(0)) {
+            try { this.registerLayerProvider(p.id, p.fn); } catch (e) {}
+        }
+    }
     // Self-diagnostics (shown in Scene_FrameMaster, no console needed).
     this._registryStatus = "pending"; // pending|ok|empty|missing|invalid-shape
     this._fileStatus = {};     // file -> { status, id? }
@@ -691,6 +1106,7 @@ Game_FrameMaster.prototype.reload = function() {
     this._registryReady = false;
     this._pendingFiles = 0;
     this._bitmaps = {};
+    this._bitmapOrder = [];
     this._registryStatus = "pending";
     this._fileStatus = {};
     this.loadRegistry();
@@ -743,15 +1159,45 @@ Game_FrameMaster.prototype.listAnimations = function() {
 
 Game_FrameMaster.prototype.bitmapFor = function(filename) {
     if (!filename) return null;
+    const raw = String(filename);
+    const MAX_BITMAPS = 220; // ~200 frames + headroom; evicts LRU on overflow
+    const touch = (canon) => {
+        const at = this._bitmapOrder.indexOf(canon);
+        if (at !== -1) this._bitmapOrder.splice(at, 1);
+        this._bitmapOrder.push(canon);
+        while (this._bitmapOrder.length > MAX_BITMAPS) {
+            const evict = this._bitmapOrder.shift();
+            const bmp = this._bitmaps[evict];
+            if (bmp) {
+                try { if (bmp.destroy) bmp.destroy(); } catch (e) {}
+                delete this._bitmaps[evict];
+            }
+        }
+    };
+    // .webp: MZ's loadBitmap always appends .png, so use the URL loader
+    // to keep the real extension (60-80% smaller than PNG).
+    if (/\.webp$/i.test(raw)) {
+        const canon = raw.toLowerCase();
+        let bmp = this._bitmaps[canon];
+        if (bmp) { touch(canon); return bmp; }
+        const url = FM_FOLDER_IMG + (typeof Utils !== "undefined" && Utils.encodeURI ? Utils.encodeURI(raw) : raw);
+        bmp = ImageManager.loadBitmapFromUrl(url);
+        this._bitmaps[canon] = bmp;
+        touch(canon);
+        return bmp;
+    }
     // MZ's ImageManager.loadBitmap() appends ".png" itself
     // (url = folder + name + ".png"), so strip it here. JSON files,
     // the editor and the ZIP pack keep full "name.png" filenames.
-    const key = String(filename).replace(/\.png$/i, "");
-    let bmp = this._bitmaps[key];
-    if (!bmp) {
-        bmp = ImageManager.loadBitmap(FM_FOLDER_IMG, key);
-        this._bitmaps[key] = bmp;
-    }
+    const key = raw.replace(/\.png$/i, "");
+    const canon = key.toLowerCase();
+    let bmp = this._bitmaps[canon];
+    if (bmp) { touch(canon); return bmp; }
+    bmp = ImageManager.loadBitmap(FM_FOLDER_IMG, key);
+    this._bitmaps[canon] = bmp;
+    // Keep the original-case key as an alias for direct lookups (no extra LRU entry)
+    if (key !== canon) this._bitmaps[key] = bmp;
+    touch(canon);
     return bmp;
 };
 
@@ -768,6 +1214,108 @@ Game_FrameMaster.prototype.preloadAll = function() {
             + "If this surprises you, the registry failed to load; see the FrameMaster warnings above.");
     } else {
         fmLog("Preloaded bitmaps for", ids.length, "animations.");
+    }
+};
+
+Game_FrameMaster.prototype.preloadNearby = function() {
+    try {
+        if (!this.isReady()) return;
+        const toPreload = new Set();
+        const addAnim = (animId) => {
+            if (!animId) return;
+            const anim = this.getAnimation(animId);
+            if (!anim) return;
+            for (const f of anim.frames) {
+                const file = f.source || f.img;
+                if (file) toPreload.add(file);
+            }
+        };
+        const collectFor = (ch) => {
+            if (!ch) return;
+            if (ch._fmState) addAnim(ch._fmState.animId);
+            if (ch._fmAuto && ch._fmAuto.mapping) {
+                for (const k in ch._fmAuto.mapping) {
+                    if (k === "blend") continue;
+                    addAnim(ch._fmAuto.mapping[k]);
+                }
+            }
+            if (Array.isArray(ch._fmLayers)) {
+                for (const L of ch._fmLayers) {
+                    if (!L) continue;
+                    if (L.suffix && ch._fmState) addAnim(ch._fmState.animId + L.suffix);
+                    if (L.anim) addAnim(L.anim);
+                }
+            }
+            // Battle sets assigned to this battler (pre-warm for upcoming battle)
+            if (ch._fmBSet && typeof proBsets !== "undefined" && proBsets[ch._fmBSet]) {
+                const set = proBsets[ch._fmBSet];
+                for (const k in set.states) addAnim(set.states[k]);
+            }
+        };
+        // Player + followers are always nearby
+        if (typeof $gamePlayer !== "undefined" && $gamePlayer) {
+            collectFor($gamePlayer);
+            try {
+                const followers = $gamePlayer.followers() ? $gamePlayer.followers()._data : [];
+                for (const f of followers) collectFor(f);
+            } catch (e) {}
+        }
+        // Pending restore anims (still to be applied to events)
+        if (this._pendingRestore) {
+            for (const key in this._pendingRestore) {
+                const rec = this._pendingRestore[key];
+                if (rec && rec.animId) addAnim(rec.animId);
+                if (rec && rec.layers) {
+                    for (const L of rec.layers) {
+                        if (L.suffix && rec.animId) addAnim(rec.animId + L.suffix);
+                        if (L.anim) addAnim(L.anim);
+                    }
+                }
+                if (rec && rec.auto && rec.auto.mapping) {
+                    for (const k in rec.auto.mapping) {
+                        if (k !== "blend") addAnim(rec.auto.mapping[k]);
+                    }
+                }
+            }
+        }
+        // Nearby events (proximity cull for large maps)
+        if (typeof $gameMap !== "undefined" && $gameMap && typeof $gameMap.events === "function") {
+            const events = $gameMap.events();
+            const isLarge = $gameMap.width() * $gameMap.height() > 1600;
+            const px = (typeof $gamePlayer !== "undefined" && $gamePlayer) ? $gamePlayer.x : 0;
+            const py = (typeof $gamePlayer !== "undefined" && $gamePlayer) ? $gamePlayer.y : 0;
+            const RADIUS = 26; // tiles, ~ screen + margin
+            for (const ev of events) {
+                if (!ev) continue;
+                if (isLarge) {
+                    const dx = Math.abs(ev.x - px);
+                    const dy = Math.abs(ev.y - py);
+                    if (dx + dy > RADIUS && Math.max(dx, dy) > 18) continue;
+                }
+                collectFor(ev);
+            }
+        }
+        // Party actors' battle sets (warm for next encounter)
+        if (typeof $gameParty !== "undefined" && $gameParty && typeof $gameParty.members === "function") {
+            try {
+                for (const actor of $gameParty.members()) collectFor(actor);
+            } catch (e) {}
+        }
+        if (toPreload.size === 0) {
+            // Nothing anchored yet (e.g., fresh map with no FM): fallback to all for small games
+            const total = Object.keys(this._anims).length;
+            if (total > 0 && total <= 24) {
+                fmLog("Proximity preload: no anchored anims — preloading all " + total + " animations (small game).");
+                return this.preloadAll();
+            }
+            fmLog("Proximity preload: no nearby FM animations to warm.");
+            return;
+        }
+        for (const file of toPreload) this.bitmapFor(file);
+        fmLog("Proximity preload:", toPreload.size, "images for nearby characters (LRU", this._bitmapOrder.length + ").");
+    } catch (e) {
+        fmWarn("preloadNearby failed:", e);
+        try { this.preloadAll(); } catch (e2) {}
     }
 };
 
@@ -905,7 +1453,7 @@ Game_FrameMaster.prototype._startPlayback = function(ch, anim, options) {
         this._callbacks.delete(ch);
     }
     this.bitmapFor(anim.frames[0].source || anim.frames[0].img);
-    this._fireFrameEvents(anim.frames[0]);
+    this._fireFrameEvents(anim.frames[0], ch);
     fmLog("play:", anim.id, "on", this.characterKey(ch));
     return true;
 };
@@ -942,6 +1490,63 @@ Game_FrameMaster.prototype.transitionTo = function(character, newAnimationId, bl
     return ok;
 };
 
+/**
+ * Independent one-shot action: plays an animation once (loop forced off)
+ * without permanently overwriting the auto-pilot. When it finishes it
+ * returns to the auto-pilot (if any) or to the native charset sprite.
+ * Perfect for cutscene hits, chest openings, emotes on characters that
+ * have no permanent profile. The 60-80% smaller .webp frames work the
+ * same as PNG — just use "name.webp" filenames.
+ */
+Game_FrameMaster.prototype.playOnce = function(character, animationId, options) {
+    const ch = this.resolveCharacter(character);
+    if (!ch) {
+        fmWarn("playOnce: unknown character:", character);
+        return false;
+    }
+    const anim = this.getAnimation(animationId);
+    if (!anim) {
+        fmWarn("playOnce: unknown animation:", animationId);
+        return false;
+    }
+    options = options || {};
+    const userCb = options.onComplete;
+    const hadAuto = !!(ch._fmAuto && !ch._fmAuto.suspended);
+    // Force non-looping, keep blend/speed from caller
+    const wrapped = () => {
+        try { if (typeof userCb === "function") userCb(); } catch (e) { fmWarn("playOnce onComplete failed:", e); }
+        try {
+            if (ch._fmAuto) {
+                ch._fmAuto.suspended = false;
+                // Let the next updateAuto tick pick the right idle/walk.
+                // If the one-shot is still the current state and has ended,
+                // clear it so auto doesn't have to wait for a switch.
+                const st = ch._fmState;
+                if (st && st.animId === animationId && !st.playing) {
+                    ch._fmState = null;
+                    ch._fmNeedsResync = false;
+                }
+            } else {
+                const st = ch._fmState;
+                if (st && st.animId === animationId && !st.playing) {
+                    ch._fmState = null;
+                    ch._fmNeedsResync = true;
+                    if (this._callbacks.has(ch)) this._callbacks.delete(ch);
+                }
+            }
+        } catch (e) { fmWarn("playOnce resume failed:", e); }
+    };
+    const opts = {
+        loop: false,
+        speed: options.speed,
+        blend: options.blend,
+        onComplete: wrapped
+    };
+    const ok = this._startPlayback(ch, anim, opts);
+    if (ok && ch._fmAuto) ch._fmAuto.suspended = true;
+    return ok;
+};
+
 Game_FrameMaster.prototype.getCurrentFrame = function(character) {
     const ch = this.resolveCharacter(character);
     const st = this._getState(ch);
@@ -970,7 +1575,8 @@ Game_FrameMaster.prototype._sanitizeAutoMapping = function(raw) {
     if (!raw || typeof raw !== "object") return null;
     const keys = ["idle", "walk", "dash",
         "idleDown", "idleUp", "idleLeft", "idleRight",
-        "walkDown", "walkUp", "walkLeft", "walkRight"];
+        "walkDown", "walkUp", "walkLeft", "walkRight",
+        "walkDownLeft", "walkDownRight", "walkUpLeft", "walkUpRight"];
     const mapping = {};
     for (const k of keys) {
         if (typeof raw[k] === "string" && raw[k].trim()) {
@@ -997,7 +1603,10 @@ Game_FrameMaster.prototype.setAuto = function(character, mapping) {
         fmWarn("setAuto: mapping needs at least one animation id (idle, walk, dash or a directional variant).");
         return false;
     }
-    ch._fmAuto = { mapping: clean, suspended: false, _warnedMissing: null };
+    // Include the exact previous position alongside the mapping so the
+    // diagonal vector (real-vs-logical delta) is version-proof and has no
+    // alias-timing dependency on _realX/_realY hooking.
+    ch._fmAuto = { mapping: clean, suspended: false, _warnedMissing: null, _px: isFinite(ch._x) ? Number(ch._x) : 0, _py: isFinite(ch._y) ? Number(ch._y) : 0 };
     fmLog("auto-pilot ON for", this.characterKey(ch), JSON.stringify(clean));
     return true;
 };
@@ -1024,14 +1633,45 @@ Game_FrameMaster.prototype.getAuto = function(character) {
 };
 
 Game_FrameMaster.prototype._autoDirectionSuffix = function(ch) {
+    // Stateless vector: remaining real-vs-logical deltas catch pixel
+    // movement (Altimit/HalfMove/Rosedale) without hook interposition and
+    // degrade to Down safely when movers lack the fields.
     try {
+        if (typeof ch.isMoving === "function" && ch.isMoving()) {
+            const rx = (isFinite(ch._realX) && isFinite(ch._x)) ? Number(ch._realX) - Number(ch._x) : 0;
+            const ry = (isFinite(ch._realY) && isFinite(ch._y)) ? Number(ch._realY) - Number(ch._y) : 0;
+            if (rx !== 0 || ry !== 0) {
+                const x = Number(Math.sign(rx));
+                const y = Number(Math.sign(ry));
+                if (x < 0 && y > 0) return "DownLeft";
+                if (x > 0 && y > 0) return "DownRight";
+                if (x < 0 && y < 0) return "UpLeft";
+                if (x > 0 && y < 0) return "UpRight";
+                if (y > 0) return "Down";
+                if (y < 0) return "Up";
+                if (x < 0) return "Left";
+                if (x > 0) return "Right";
+            }
+        }
         const d = ch.direction();
+        if (d === 1) return "DownLeft";
+        if (d === 3) return "DownRight";
+        if (d === 7) return "UpLeft";
+        if (d === 9) return "UpRight";
         if (d === 2) return "Down";
         if (d === 4) return "Left";
         if (d === 6) return "Right";
         return "Up";
     } catch (e) {
-        return "Down";
+        try {
+            const d = ch.direction();
+            if (d === 2) return "Down";
+            if (d === 4) return "Left";
+            if (d === 6) return "Right";
+            return "Up";
+        } catch (e2) {
+            return "Down";
+        }
     }
 };
 
@@ -1056,6 +1696,8 @@ Game_FrameMaster.prototype.desiredAutoAnim = function(character) {
 Game_FrameMaster.prototype.updateAuto = function(ch) {
     const auto = ch._fmAuto;
     if (!auto || auto.suspended) return;
+    auto._px = isFinite(ch._x) ? Number(ch._x) : (auto._px || 0);
+    auto._py = isFinite(ch._y) ? Number(ch._y) : (auto._py || 0);
     let want = null;
     try { want = this.desiredAutoAnim(ch); } catch (e) { want = null; }
     const st = ch._fmState;
@@ -1077,6 +1719,8 @@ Game_FrameMaster.prototype.updateAuto = function(ch) {
         ch._fmState = null;
         ch._fmNeedsResync = true;
     }
+    auto._px = isFinite(ch._x) ? Number(ch._x) : auto._px;
+    auto._py = isFinite(ch._y) ? Number(ch._y) : auto._py;
 };
 
 /** Per-frame advance. Called from the Game_CharacterBase.update hook. */
@@ -1129,7 +1773,7 @@ Game_FrameMaster.prototype.updateCharacter = function(ch) {
             }
             st.dir = dir;
             st.frameIndex = next;
-            this._fireFrameEvents(anim.frames[next]);
+            this._fireFrameEvents(anim.frames[next], ch);
             continue;
         }
         if (randomPick) {
@@ -1140,7 +1784,7 @@ Game_FrameMaster.prototype.updateCharacter = function(ch) {
                 guard++;
             } while (next === st.frameIndex && guard < 8);
             st.frameIndex = next;
-            this._fireFrameEvents(anim.frames[next]);
+            this._fireFrameEvents(anim.frames[next], ch);
             continue;
         }
         let next = st.frameIndex + 1;
@@ -1161,13 +1805,14 @@ Game_FrameMaster.prototype.updateCharacter = function(ch) {
             }
         }
         st.frameIndex = next;
-        this._fireFrameEvents(anim.frames[next]);
+        this._fireFrameEvents(anim.frames[next], ch);
     }
 };
 
 // ---- Frame events ----------------------------------------------------------
-
-Game_FrameMaster.prototype._fireFrameEvents = function(frame) {
+// owner: the character/battler/picture that reached the frame (used by
+// extensions such as PRO script events; ignored by the base runtime).
+Game_FrameMaster.prototype._fireFrameEvents = function(frame, owner) {
     if (!frame || !frame.events || frame.events.length === 0) return;
     for (const ev of frame.events) {
         try {
@@ -1187,6 +1832,13 @@ Game_FrameMaster.prototype._fireFrameEvents = function(frame) {
                 if (typeof $gameSwitches !== "undefined" && $gameSwitches) {
                     $gameSwitches.setValue(ev.id, !!ev.value);
                 }
+            } else if (ev.type === "script" && typeof this._proRunScript === "function") {
+                // PRO-origin frame event (free since v2.0.0 merge).
+                try {
+                    this._proRunScript(ev, owner);
+                } catch (e) {
+                    if (typeof console !== "undefined") console.warn("[FrameMaster] Script event failed:", e);
+                }
             }
         } catch (e) {
             fmWarn("Frame event failed:", JSON.stringify(ev), e);
@@ -1201,11 +1853,15 @@ Game_FrameMaster.prototype._fireFrameEvents = function(frame) {
  * should be used. { bitmap, sx, sy, sw, sh, anchorX, anchorY } or {pending:true}.
  */
 Game_FrameMaster.prototype.frameView = function(character) {
-    const ch = this.resolveCharacter(character);
-    if (!ch) return null;
-    const st = ch._fmState;
-    if (!st) return null;
-    return this.frameViewByIndex(st.animId, st.frameIndex);
+    // Characters resolve normally; battlers/pictures (same _fmState shape)
+    // fall through to the direct read. Anything else yields null.
+    const ch = this.resolveCharacter(character) || character;
+    if (!ch || !ch._fmState) return null;
+    try {
+        return this.frameViewByIndex(ch._fmState.animId, ch._fmState.frameIndex);
+    } catch (e) {
+        return null;
+    }
 };
 
 Game_FrameMaster.prototype.frameViewByIndex = function(animationId, frameIndex) {
@@ -1234,8 +1890,10 @@ Game_FrameMaster.prototype.frameViewByIndex = function(animationId, frameIndex) 
 Game_FrameMaster.prototype.saveStates = function() {
     const out = {};
     const collect = (ch) => {
-        // Save playback AND/OR auto-pilot config (auto-only chars have no state).
-        if (!ch || (!ch._fmState && !ch._fmAuto)) return;
+        // Save playback AND/OR auto-pilot AND/OR layers (chars with only
+        // layers/auto and no state still need an entry).
+        const layers = (ch && Array.isArray(ch._fmLayers) && ch._fmLayers.length) ? ch._fmLayers : null;
+        if (!ch || (!ch._fmState && !ch._fmAuto && !layers)) return;
         const key = this.characterKey(ch);
         if (!key) return;
         const entry = { animId: null };
@@ -1249,6 +1907,9 @@ Game_FrameMaster.prototype.saveStates = function() {
         }
         if (ch._fmAuto) {
             entry.auto = { mapping: ch._fmAuto.mapping };
+        }
+        if (layers) {
+            entry.layers = layers;
         }
         out[key] = entry;
     };
@@ -1301,7 +1962,7 @@ Game_FrameMaster.prototype.onMapSetup = function() {
         }
     }
     if (FM_Config.preloadOnMapLoad) {
-        try { this.preloadAll(); } catch (e) { fmWarn("preload failed:", e); }
+        try { this.preloadNearby(); } catch (e) { fmWarn("preload failed:", e); }
     }
     if (!this._pendingRestore) return;
     try {
@@ -1327,7 +1988,8 @@ Game_FrameMaster.prototype._applySavedState = function(ch, saved) {
         const clean = this._sanitizeAutoMapping(saved.auto.mapping);
         if (clean) ch._fmAuto = { mapping: clean, suspended: false, _warnedMissing: null };
     }
-    if (!saved.animId) return; // auto-only entry: the next tick picks the anim
+    ch._fmLayers = this._sanitizeLayers(saved.layers);
+    if (!saved.animId) return; // stateless entry: ticks pick the anim up
     const anim = this.getAnimation(saved.animId);
     if (!anim) {
         fmLog("Saved animation no longer exists, skipped:", saved.animId);
@@ -1444,6 +2106,7 @@ Sprite_Character.prototype.initMembers = function() {
     this._fmBlendTime = 0;
     this._fmBlendDuration = 0;
     this._fmWasActive = false;
+    this._fmLayerSprites = null; // pooled overlay sprites, one per layer
 };
 
 Sprite_Character.prototype.fmEnsureBlendSprite = function() {
@@ -1499,6 +2162,50 @@ Sprite_Character.prototype.update = function() {
     }
 };
 
+// Layer pool: one child sprite per active layer, created lazily and reused.
+// Self-contained on purpose (no game lookups) so it can never break sprites.
+// Layer pool renderer shared by map characters and battlers: one pooled
+// child sprite per active layer. Self-contained on purpose (no game lookups,
+// only host-sprite primitives) so it can never break sprites.
+function fmPaintLayers(hostSprite, views) {
+    try {
+        if (!hostSprite || typeof hostSprite.addChild !== "function") return;
+        let pool = hostSprite._fmLayerSprites;
+        if (!pool) {
+            pool = [];
+            hostSprite._fmLayerSprites = pool;
+        }
+        const n = views ? views.length : 0;
+        while (pool.length < n) {
+            const s = new Sprite();
+            s.visible = false;
+            hostSprite.addChild(s);
+            pool.push(s);
+        }
+        for (let i = 0; i < pool.length; i++) {
+            const s = pool[i];
+            if (i < n) {
+                const v = views[i];
+                s.bitmap = v.bitmap;
+                s.setFrame(v.sx, v.sy, v.sw, v.sh);
+                s.anchor.x = v.anchorX;
+                s.anchor.y = v.anchorY;
+                s.x = v.dx || 0;
+                s.y = v.dy || 0;
+                s.opacity = hostSprite.opacity;
+                s.visible = true;
+            } else {
+                s.visible = false;
+                s.bitmap = null;
+            }
+        }
+    } catch (e) { /* layers never break sprites */ }
+}
+
+Sprite_Character.prototype.fmSyncLayers = function(views) {
+    fmPaintLayers(this, views);
+};
+
 const _FM_Sprite_Character_updateBitmap = Sprite_Character.prototype.updateBitmap;
 Sprite_Character.prototype.updateBitmap = function() {
     const ch = this._character;
@@ -1511,6 +2218,9 @@ Sprite_Character.prototype.updateBitmap = function() {
         this.anchor.x = 0.5;
         this.anchor.y = 1;
         this._fmWasActive = false;
+        if ($gameFrameMaster) {
+            try { $gameFrameMaster.fmDrawLayers(this, ch); } catch (e) {}
+        }
     }
     if (ch && ch._fmState && $gameFrameMaster) {
         let view = null;
@@ -1536,11 +2246,17 @@ Sprite_Character.prototype.updateBitmap = function() {
             this._characterName = "\0fm-missing";
             this.anchor.x = 0.5;
             this.anchor.y = 1;
+            if ($gameFrameMaster) {
+                try { $gameFrameMaster.fmDrawLayers(this, ch); } catch (e) {}
+            }
         }
     } else if (this._fmWasActive) {
         this._fmWasActive = false;
         this.anchor.x = 0.5;
         this.anchor.y = 1;
+        if ($gameFrameMaster) {
+            try { $gameFrameMaster.fmDrawLayers(this, ch); } catch (e) {}
+        }
     }
     _FM_Sprite_Character_updateBitmap.call(this);
 };
@@ -1580,6 +2296,7 @@ Sprite_Character.prototype.updateFrame = function() {
             } else {
                 this.setFrame(view.sx, view.sy, view.sw, view.sh);
             }
+            try { $gameFrameMaster.fmDrawLayers(this, ch); } catch (e) {}
             return;
         }
         if (view && view.pending) return; // keep previous frame while loading
@@ -2006,6 +2723,60 @@ PluginManager.registerCommand(PLUGIN_NAME, "OpenPreview", function() {
     if (typeof SceneManager !== "undefined") SceneManager.push(Scene_FrameMaster);
 });
 
+PluginManager.registerCommand(PLUGIN_NAME, "LayerSet", function(args) {
+    if (!$gameFrameMaster) return;
+    const ch = fmResolveCommandTarget(args, this);
+    if (!ch) {
+        fmWarn("LayerSet: no target character.");
+        return;
+    }
+    const slot = String(args.slot || "").trim();
+    if (!/^[A-Za-z0-9_]+$/.test(slot)) {
+        fmWarn("LayerSet: slot must be letters, digits or underscore.");
+        return;
+    }
+    const kind = String(args.kind || "suffix");
+    const value = String(args.value || "").trim();
+    const entry = {
+        slot: slot,
+        suffix: kind === "anim" ? null : (value || null),
+        anim: kind === "anim" ? value : null,
+        dx: Math.min(500, Math.max(-500, Math.floor(Number(args.dx) || 0))),
+        dy: Math.min(500, Math.max(-500, Math.floor(Number(args.dy) || 0)))
+    };
+    if (!entry.suffix && !entry.anim) {
+        fmWarn("LayerSet: empty value — nothing to set.");
+        return;
+    }
+    const stack = $gameFrameMaster.getLayers(ch).filter(l => l.slot !== slot);
+    stack.push(entry);
+    $gameFrameMaster.setLayers(ch, stack);
+});
+
+PluginManager.registerCommand(PLUGIN_NAME, "LayerClear", function(args) {
+    if (!$gameFrameMaster) return;
+    const ch = fmResolveCommandTarget(args, this);
+    if (!ch) {
+        fmWarn("LayerClear: no target character.");
+        return;
+    }
+    const slot = String(args.slot || "").trim();
+    $gameFrameMaster.clearLayers(ch, slot || undefined);
+});
+
+PluginManager.registerCommand(PLUGIN_NAME, "PlayOnce", function(args) {
+    if (!$gameFrameMaster) return;
+    const ch = fmResolveCommandTarget(args, this);
+    if (!ch) {
+        fmWarn("PlayOnce: no target character.");
+        return;
+    }
+    $gameFrameMaster.playOnce(ch, String(args.animation || "").trim(), {
+        speed: Math.min(8, Math.max(0.1, Number(args.speed) || 1.0)),
+        blend: Number(args.blend) < 0 ? undefined : Math.max(0, Number(args.blend) || 0)
+    });
+});
+
 PluginManager.registerCommand(PLUGIN_NAME, "AutoPlay", function(args) {
     if (!$gameFrameMaster) return;
     const ch = fmResolveCommandTarget(args, this);
@@ -2026,6 +2797,10 @@ PluginManager.registerCommand(PLUGIN_NAME, "AutoPlay", function(args) {
         walkUp: String(args.walkUp || "").trim(),
         walkLeft: String(args.walkLeft || "").trim(),
         walkRight: String(args.walkRight || "").trim(),
+        walkDownLeft: String(args.walkDownLeft || "").trim(),
+        walkDownRight: String(args.walkDownRight || "").trim(),
+        walkUpLeft: String(args.walkUpLeft || "").trim(),
+        walkUpRight: String(args.walkUpRight || "").trim(),
         blend: Number(args.blend) < 0 ? FM_Config.defaultBlend : Math.max(0, Number(args.blend) || 0)
     };
     $gameFrameMaster.setAuto(ch, mapping);
@@ -2060,22 +2835,1477 @@ Scene_Map.prototype.update = function() {
 };
 
 // ============================================================================
-// 8. Public exports / test seam
+// 9. Battlers & pictures (free since the v2.0.0 merge — Godot-style visual
+//    freedom everywhere: map, battle, screen)
+// ----------------------------------------------------------------------------
+// Battlers (actors + enemies, side-view and front-view): hit-flash, damage
+// popups, states and collapse keep working on top of FM frames. The actor's
+// weapon sprite hides while FM drives it and returns with the next motion.
+// Pictures: position/scale/rotation/opacity/tone kept, image replaced.
+// Blends crossfade FM -> FM; native -> FM is a hard cut (LITE-wide rule).
+// ============================================================================
+
+function proWarn(...args) {
+    if (typeof console !== "undefined") console.warn("[FrameMaster]", ...args);
+}
+
+const SCRIPT_MAX_LENGTH = 5000;
+
+// ---- Resolution helpers ----
+
+function proResolveBattler(ref) {
+    try {
+        if (ref && (typeof ref === "object" || typeof ref === "function")) {
+            if (typeof Game_Battler === "undefined" || (ref instanceof Game_Battler)) return ref;
+            if (typeof Game_Picture !== "undefined" && (ref instanceof Game_Picture)) return ref;
+            return ref;
+        }
+        if (!ref && ref !== 0) return null;
+        if (typeof ref === "string") {
+            const m = ref.trim().toLowerCase().match(/^(actor|enemy)[:\s]+(\d+)$/);
+            if (m) {
+                const n = Number(m[2]);
+                if (m[1] === "actor" && typeof $gameActors !== "undefined" && $gameActors) {
+                    return $gameActors.actor(n) || null;
+                }
+                if (m[1] === "enemy" && typeof $gameTroop !== "undefined" && $gameTroop) {
+                    const members = $gameTroop.members();
+                    return (n >= 0 && n < members.length) ? members[n] : null;
+                }
+            }
+        }
+    } catch (e) {
+        proWarn("resolveBattler failed:", e);
+    }
+    return null;
+}
+
+function proResolvePicture(ref) {
+    try {
+        if (typeof Game_Picture !== "undefined" && ref instanceof Game_Picture) {
+            return ref;
+        }
+        const id = Math.floor(Number(ref));
+        if (id >= 1 && id <= 100 && typeof $gameScreen !== "undefined" && $gameScreen) {
+            return $gameScreen.picture(id);
+        }
+    } catch (e) {
+        proWarn("resolvePicture failed:", e);
+    }
+    return null;
+}
+
+function proApi() {
+    try {
+        const g = (typeof window !== "undefined") ? window.$gameFrameMaster : null;
+        if (!g) return null;
+        return g;
+    } catch (e) {
+        return null;
+    }
+}
+
+// ---- Battlers ----
+
+Game_FrameMaster.prototype.playBattler = function(battler, animationId, options) {
+    const api = proApi();
+    if (!api) return false;
+    const b = proResolveBattler(battler);
+    if (!b) {
+        proWarn('playBattler: unknown battler. Use $gameActors.actor(n), $gameTroop.members()[i], "actor:1" or "enemy:0".');
+        return false;
+    }
+    const anim = api.getAnimation(animationId);
+    if (!anim) {
+        proWarn("playBattler: unknown animation:", animationId);
+        return false;
+    }
+    // _startPlayback snapshots the previous FM display via frameView
+    // (which understands battlers); native -> FM starts with a hard cut.
+    return api._startPlayback(b, anim, options || {});
+};
+
+Game_FrameMaster.prototype.stopBattler = function(battler) {
+    const api = proApi();
+    if (!api) return false;
+    const b = proResolveBattler(battler);
+    if (!b) {
+        proWarn("stopBattler: unknown battler.");
+        return false;
+    }
+    if (api._callbacks && api._callbacks.has(b)) api._callbacks.delete(b);
+    if (b._fmState) {
+        b._fmState = null;
+        b._fmNeedsResync = true; // force sprite back to the native battler image
+    }
+    return true;
+};
+
+Game_FrameMaster.prototype.transitionBattler = function(battler, newAnimationId, blendDuration) {
+    const api = proApi();
+    if (!api) return false;
+    const b = proResolveBattler(battler);
+    if (!b) {
+        proWarn("transitionBattler: unknown battler.");
+        return false;
+    }
+    const prevLoop = b._fmState ? b._fmState.loopOverride : null;
+    const prevSpeed = b._fmState ? b._fmState.speedMul : 1.0;
+    const ok = api.playBattler(b, newAnimationId, {
+        blend: (blendDuration !== undefined && blendDuration !== null) ? blendDuration : undefined
+    });
+    if (ok && b._fmState) {
+        if (prevLoop !== null) b._fmState.loopOverride = prevLoop;
+        b._fmState.speedMul = prevSpeed;
+    }
+    return ok;
+};
+
+Game_FrameMaster.prototype.getBattlerFrame = function(battler) {
+    const b = proResolveBattler(battler);
+    return (b && b._fmState) ? b._fmState.frameIndex : -1;
+};
+
+Game_FrameMaster.prototype.isBattlerPlaying = function(battler) {
+    const b = proResolveBattler(battler);
+    return !!(b && b._fmState && b._fmState.playing);
+};
+
+Game_FrameMaster.prototype.getBattlerAnimation = function(battler) {
+    const b = proResolveBattler(battler);
+    return (b && b._fmState) ? b._fmState.animId : null;
+};
+
+Game_FrameMaster.prototype.playBattlerOnce = function(battler, animationId, options) {
+    const b = proResolveBattler(battler);
+    if (!b) {
+        proWarn("playBattlerOnce: unknown battler.");
+        return false;
+    }
+    const api = proApi();
+    if (!api) return false;
+    const anim = api.getAnimation(animationId);
+    if (!anim) {
+        proWarn("playBattlerOnce: unknown animation:", animationId);
+        return false;
+    }
+    options = options || {};
+    const userCb = options.onComplete;
+    const wrapped = () => {
+        try { if (typeof userCb === "function") userCb(); } catch (e) { proWarn("playBattlerOnce onComplete failed:", e); }
+        try {
+            const st = b._fmState;
+            if (st && st.animId === animationId && !st.playing) {
+                b._fmState = null;
+                b._fmNeedsResync = true;
+                if (api._callbacks && api._callbacks.has(b)) api._callbacks.delete(b);
+            }
+        } catch (e) {}
+    };
+    return api._startPlayback(b, anim, { loop: false, speed: options.speed, blend: options.blend, onComplete: wrapped });
+};
+
+// ---- Pictures ----
+
+Game_FrameMaster.prototype.playPicture = function(picture, animationId, options) {
+    const api = proApi();
+    if (!api) return false;
+    const p = proResolvePicture(picture);
+    if (!p) {
+        proWarn("playPicture: unknown picture. Show it first (Show Picture id 1-100).");
+        return false;
+    }
+    const anim = api.getAnimation(animationId);
+    if (!anim) {
+        proWarn("playPicture: unknown animation:", animationId);
+        return false;
+    }
+    return api._startPlayback(p, anim, options || {});
+};
+
+Game_FrameMaster.prototype.stopPicture = function(picture) {
+    const api = proApi();
+    if (!api) return false;
+    const p = proResolvePicture(picture);
+    if (!p) {
+        proWarn("stopPicture: unknown picture.");
+        return false;
+    }
+    if (api._callbacks && api._callbacks.has(p)) api._callbacks.delete(p);
+    if (p._fmState) {
+        p._fmState = null;
+        p._fmNeedsResync = true; // force sprite back to the picture's own image
+    }
+    return true;
+};
+
+Game_FrameMaster.prototype.playPictureOnce = function(picture, animationId, options) {
+    const p = proResolvePicture(picture);
+    if (!p) {
+        proWarn("playPictureOnce: unknown picture.");
+        return false;
+    }
+    const api = proApi();
+    if (!api) return false;
+    const anim = api.getAnimation(animationId);
+    if (!anim) {
+        proWarn("playPictureOnce: unknown animation:", animationId);
+        return false;
+    }
+    options = options || {};
+    const userCb = options.onComplete;
+    const wrapped = () => {
+        try { if (typeof userCb === "function") userCb(); } catch (e) { proWarn("playPictureOnce onComplete failed:", e); }
+        try {
+            const st = p._fmState;
+            if (st && st.animId === animationId && !st.playing) {
+                p._fmState = null;
+                p._fmNeedsResync = true;
+                if (api._callbacks && api._callbacks.has(p)) api._callbacks.delete(p);
+            }
+        } catch (e) {}
+    };
+    return api._startPlayback(p, anim, { loop: false, speed: options.speed, blend: options.blend, onComplete: wrapped });
+};
+
+Game_FrameMaster.prototype.transitionPicture = function(picture, newAnimationId, blendDuration) {
+    const api = proApi();
+    if (!api) return false;
+    const p = proResolvePicture(picture);
+    if (!p) {
+        proWarn("transitionPicture: unknown picture.");
+        return false;
+    }
+    const prevSpeed = p._fmState ? p._fmState.speedMul : 1.0;
+    const ok = api.playPicture(p, newAnimationId, {
+        blend: (blendDuration !== undefined && blendDuration !== null) ? blendDuration : undefined
+    });
+    if (ok && p._fmState) p._fmState.speedMul = prevSpeed;
+    return ok;
+};
+
+Game_FrameMaster.prototype.getPictureFrame = function(picture) {
+    const p = proResolvePicture(picture);
+    return (p && p._fmState) ? p._fmState.frameIndex : -1;
+};
+
+Game_FrameMaster.prototype.isPicturePlaying = function(picture) {
+    const p = proResolvePicture(picture);
+    return !!(p && p._fmState && p._fmState.playing);
+};
+
+Game_FrameMaster.prototype.getPictureAnimation = function(picture) {
+    const p = proResolvePicture(picture);
+    return (p && p._fmState) ? p._fmState.animId : null;
+};
+
+// ---- Shared view helper: current FM display of ANY owner -------------
+// (battlers and pictures carry the same _fmState shape as characters).
+
+Game_FrameMaster.prototype.__proView = function(owner) {
+    if (!owner || !owner._fmState) return null;
+    try {
+        return this.frameViewByIndex(owner._fmState.animId, owner._fmState.frameIndex);
+    } catch (e) {
+        return null;
+    }
+};
+
+// ---- Script frame-events (free since v2.0.0; executed from _fireFrameEvents) ----
+
+Game_FrameMaster.prototype._proRunScript = function(ev, owner) {
+    const code = ev && typeof ev.code === "string" ? ev.code : "";
+    if (!code.trim()) return;
+    if (code.length > SCRIPT_MAX_LENGTH) {
+        proWarn("Script event too long (" + code.length + " chars, max " + SCRIPT_MAX_LENGTH + ") — skipped. Heavy logic belongs in plugins.");
+        return;
+    }
+    try {
+        const fn = new Function(
+            "$gameVariables", "$gameSwitches", "$gameSelfSwitches",
+            "$gameActors", "$gameParty", "$gameTroop", "$gameMap",
+            "$gamePlayer", "$gameScreen", "$gameTemp", "$gameMessage",
+            "owner", "fm",
+            '"use strict";\n' + code
+        );
+        fn.call(this,
+            (typeof $gameVariables !== "undefined") ? $gameVariables : undefined,
+            (typeof $gameSwitches !== "undefined") ? $gameSwitches : undefined,
+            (typeof $gameSelfSwitches !== "undefined") ? $gameSelfSwitches : undefined,
+            (typeof $gameActors !== "undefined") ? $gameActors : undefined,
+            (typeof $gameParty !== "undefined") ? $gameParty : undefined,
+            (typeof $gameTroop !== "undefined") ? $gameTroop : undefined,
+            (typeof $gameMap !== "undefined") ? $gameMap : undefined,
+            (typeof $gamePlayer !== "undefined") ? $gamePlayer : undefined,
+            (typeof $gameScreen !== "undefined") ? $gameScreen : undefined,
+            (typeof $gameTemp !== "undefined") ? $gameTemp : undefined,
+            (typeof $gameMessage !== "undefined") ? $gameMessage : undefined,
+            owner || null,
+            (typeof window !== "undefined" && window.$gameFrameMaster) ? window.$gameFrameMaster : null
+        );
+    } catch (e) {
+        proWarn("Script event failed (game continues):", String((e && e.message) || e));
+    }
+};
+
+// ---- Crossfade overlay helper (FM -> FM blends on battler/picture sprites) ----
+
+function proBlendConsume(owner, hostSprite, targetSprite) {
+    try {
+        const from = owner ? owner._fmBlendFrom : null;
+        const ms = Math.max(0, Number(owner && owner._fmBlendMs) || 0);
+        if (owner) {
+            owner._fmBlendFrom = null;
+            owner._fmBlendMs = 0;
+        }
+        if (!from || !from.bitmap) return;
+        if (ms <= 0 || !hostSprite || !targetSprite) return;
+        let overlay = hostSprite._fmProBlend;
+        if (!overlay) {
+            overlay = new Sprite();
+            hostSprite.addChild(overlay);
+            hostSprite._fmProBlend = overlay;
+        }
+        overlay.bitmap = from.bitmap;
+        overlay.setFrame(from.sx, from.sy, from.sw, from.sh);
+        overlay.anchor.x = targetSprite.anchor.x;
+        overlay.anchor.y = targetSprite.anchor.y;
+        overlay.x = 0;
+        overlay.y = 0;
+        overlay.opacity = 255;
+        overlay.visible = true;
+        hostSprite._fmProBlendT = 0;
+        hostSprite._fmProBlendDur = Math.max(1, ms);
+    } catch (e) {
+        proWarn("Blend start failed:", e);
+    }
+}
+
+function proBlendFade(hostSprite) {
+    try {
+        const overlay = hostSprite ? hostSprite._fmProBlend : null;
+        if (!overlay || !overlay.visible) return;
+        hostSprite._fmProBlendT = (hostSprite._fmProBlendT || 0) + 1000 / 60;
+        const t = Math.min(1, hostSprite._fmProBlendT / (hostSprite._fmProBlendDur || 1));
+        overlay.opacity = Math.round(255 * (1 - t));
+        if (t >= 1) {
+            overlay.visible = false;
+            overlay.bitmap = null;
+        }
+    } catch (e) {
+        proWarn("Blend fade failed:", e);
+    }
+}
+
+// Owner tick shared by battler/picture sprites: advance FM state (the
+// updater skips auto-pilot automatically — battlers/pictures never carry it)
+// and drive the blend overlay.
+function proTickOwner(owner, hostSprite, targetSprite) {
+    try {
+        const api = proApi();
+        if (!api || !owner) return;
+        api.updateCharacter(owner);
+        proBlendConsume(owner, hostSprite, targetSprite);
+        proBlendFade(hostSprite);
+        proWatchdog(owner);
+    } catch (e) {
+        proWarn("Owner tick failed:", e);
+    }
+}
+
+// Current FM view or null/"pending" for sprite hooks.
+function proOwnerView(owner) {
+    try {
+        const api = proApi();
+        if (!api || !owner || !owner._fmState) return null;
+        return api.__proView(owner);
+    } catch (e) {
+        return null;
+    }
+}
+
+// ---- Sprite hooks — enemies (draw on the sprite itself) ----
+
+// Paint (or hide, when the owner has no FM state) the layer pool of a
+// battler sprite host: the sprite itself for enemies, _mainSprite for actors.
+function proPaintBattlerLayers(owner, hostSprite) {
+    try {
+        const api = proApi();
+        if (!api || !hostSprite) return;
+        api.fmDrawLayersFor(hostSprite, owner);
+    } catch (e) { /* layers never break battles */ }
+}
+
+const _PRO_Sprite_Enemy_update = Sprite_Enemy.prototype.update;
+Sprite_Enemy.prototype.update = function() {
+    _PRO_Sprite_Enemy_update.call(this, ...arguments);
+    if (this._enemy) proTickOwner(this._enemy, this, this);
+};
+
+const _PRO_Sprite_Enemy_updateBitmap = Sprite_Enemy.prototype.updateBitmap;
+Sprite_Enemy.prototype.updateBitmap = function() {
+    const b = this._enemy;
+    if (b && b._fmNeedsResync) {
+        // Force the native path to reload the battler image.
+        b._fmNeedsResync = false;
+        this._battlerName = "\0fm-resync";
+        try { proPaintBattlerLayers(b, this); } catch (e) {}
+    }
+    if (b && b._fmState) {
+        const view = proOwnerView(b);
+        if (view && view.pending) return; // image loading: keep last shown
+        if (view && view.bitmap) {
+            this._battlerName = "\0fm:" + b._fmState.animId;
+            this.bitmap = view.bitmap;
+            return;
+        }
+        // Animation vanished (deleted file): fall through to native once.
+        if (this._battlerName && String(this._battlerName).indexOf("\0fm:") === 0) {
+            this._battlerName = "\0fm-missing";
+            try { proPaintBattlerLayers(b, this); } catch (e) {}
+        }
+    }
+    _PRO_Sprite_Enemy_updateBitmap.call(this);
+};
+
+const _PRO_Sprite_Enemy_updateFrame = Sprite_Enemy.prototype.updateFrame;
+Sprite_Enemy.prototype.updateFrame = function() {
+    const b = this._enemy;
+    if (b && b._fmState) {
+        const view = proOwnerView(b);
+        if (view && view.bitmap) {
+            // FM wins over collapse framing; hit-flash/opacity still apply.
+            this.setFrame(view.sx, view.sy, view.sw, view.sh);
+            try { proPaintBattlerLayers(b, this); } catch (e) {}
+            return;
+        }
+        if (view && view.pending) return;
+    }
+    _PRO_Sprite_Enemy_updateFrame.call(this);
+};
+
+// ---- Sprite hooks — actors (draw on the _mainSprite child; weapon hides) ----
+
+const _PRO_Sprite_Actor_update = Sprite_Actor.prototype.update;
+Sprite_Actor.prototype.update = function() {
+    _PRO_Sprite_Actor_update.call(this, ...arguments);
+    if (this._actor && this._mainSprite) proTickOwner(this._actor, this._mainSprite, this._mainSprite);
+};
+
+const _PRO_Sprite_Actor_updateBitmap = Sprite_Actor.prototype.updateBitmap;
+Sprite_Actor.prototype.updateBitmap = function() {
+    const a = this._actor;
+    if (a && a._fmNeedsResync) {
+        a._fmNeedsResync = false;
+        this._battlerName = "\0fm-resync";
+        if (this._mainSprite) {
+            try { proPaintBattlerLayers(a, this._mainSprite); } catch (e) {}
+        }
+    }
+    if (a && a._fmState && this._mainSprite) {
+        const view = proOwnerView(a);
+        if (view && view.pending) return;
+        if (view && view.bitmap) {
+            this._battlerName = "\0fm:" + a._fmState.animId;
+            this._mainSprite.bitmap = view.bitmap;
+            return;
+        }
+        if (this._battlerName && String(this._battlerName).indexOf("\0fm:") === 0) {
+            this._battlerName = "\0fm-missing";
+            if (this._mainSprite) {
+                try { proPaintBattlerLayers(a, this._mainSprite); } catch (e) {}
+            }
+        }
+    }
+    _PRO_Sprite_Actor_updateBitmap.call(this);
+};
+
+const _PRO_Sprite_Actor_updateFrame = Sprite_Actor.prototype.updateFrame;
+Sprite_Actor.prototype.updateFrame = function() {
+    const a = this._actor;
+    if (a && a._fmState && this._mainSprite) {
+        const view = proOwnerView(a);
+        if (view && view.bitmap) {
+            this._mainSprite.setFrame(view.sx, view.sy, view.sw, view.sh);
+            this.setFrame(0, 0, view.sw, view.sh);
+            // A custom full-body take replaces attack motions: park the weapon
+            // (native setup() shows it again on the next weapon motion).
+            if (this._weaponSprite) this._weaponSprite.visible = false;
+            try { proPaintBattlerLayers(a, this._mainSprite); } catch (e) {}
+            return;
+        }
+        if (view && view.pending) return;
+    }
+    _PRO_Sprite_Actor_updateFrame.call(this);
+};
+
+// ---- Sprite hooks — pictures (bitmap swap + frame crop, transforms kept) ----
+
+const _PRO_Sprite_Picture_update = Sprite_Picture.prototype.update;
+Sprite_Picture.prototype.update = function() {
+    _PRO_Sprite_Picture_update.call(this, ...arguments);
+    try {
+        const picture = this.picture();
+        if (picture) {
+            proTickOwner(picture, this, this);
+            if (picture._fmState) {
+                const view = proOwnerView(picture);
+                if (view && view.bitmap) {
+                    this.setFrame(view.sx, view.sy, view.sw, view.sh);
+                }
+            }
+        }
+    } catch (e) {
+        proWarn("Picture tick failed:", e);
+    }
+};
+
+const _PRO_Sprite_Picture_updateBitmap = Sprite_Picture.prototype.updateBitmap;
+Sprite_Picture.prototype.updateBitmap = function() {
+    const picture = (typeof this.picture === "function") ? this.picture() : null;
+    if (picture && picture._fmNeedsResync) {
+        picture._fmNeedsResync = false;
+        this._pictureName = "\0fm-resync";
+    }
+    if (picture && picture._fmState) {
+        const view = proOwnerView(picture);
+        if (view && view.pending) {
+            this.visible = true;
+            return;
+        }
+        if (view && view.bitmap) {
+            this._pictureName = "\0fm:" + picture._fmState.animId;
+            this.bitmap = view.bitmap;
+            this.visible = true;
+            return;
+        }
+        if (this._pictureName && String(this._pictureName).indexOf("\0fm:") === 0) {
+            this._pictureName = "\0fm-missing";
+        }
+    }
+    _PRO_Sprite_Picture_updateBitmap.call(this);
+};
+
+// ============================================================================
+// 10. Battle Director — Godot-style battle state machine, zero code in game
+// ----------------------------------------------------------------------------
+// A Battle Set maps battle MOMENTS to animation ids:
+//
+//   idle / appear / attack1 / attack2 / attack3 / skill / item / defend /
+//   hit / evade / die / victory                                   (+ phases)
+//
+// Assign a set once (Troop Event at battle start, or an Autorun for actors)
+// and the director drives everything: action start -> attack cycle,
+// damage -> hit (or phase swap), evasion -> evade, collapse -> die,
+// victory -> victory, battle start -> appear -> idle. One-shots always
+// return to idle; unmapped moments keep native behavior (SV motions…).
+// ============================================================================
+
+const PRO_BSET_STATES = ["idle", "appear",
+    "attack1", "attack2", "attack3", "skill", "item", "defend",
+    "hit", "evade", "die", "victory"];
+const PRO_BSET_FOLDER = "data/framemaster/";
+const PRO_BSET_REGISTRY = "FM_BattleSets.json";
+
+let proBsets = {};
+let proBsetsReady = false;
+let proBsetsPending = 0;
+
+function proBsetLoadJson(url, onOk, onFail) {
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", url);
+        xhr.overrideMimeType("application/json");
+        xhr.onload = () => {
+            if (xhr.status < 400) {
+                try { onOk(JSON.parse(xhr.responseText)); }
+                catch (e) { onFail(e); }
+            } else {
+                onFail(new Error("HTTP " + xhr.status));
+            }
+        };
+        xhr.onerror = () => onFail(new Error("XHR error"));
+        xhr.send();
+    } catch (e) {
+        onFail(e);
+    }
+}
+
+function proSanitizeBattleSet(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const id = String(raw.id || "").trim();
+    if (!/^[A-Za-z0-9_]+$/.test(id)) return null;
+    const src = (raw.states && typeof raw.states === "object") ? raw.states : {};
+    const states = {};
+    for (const k of PRO_BSET_STATES) {
+        states[k] = (typeof src[k] === "string") ? src[k].trim() : "";
+    }
+    const pick = String(raw.attackPick || "cycle").toLowerCase();
+    const phases = Array.isArray(raw.phases) ? raw.phases.map(p => {
+        if (!p || typeof p !== "object") return null;
+        const set = String(p.set || "").trim();
+        const rawHp = Math.floor(Number(p.hpBelow));
+        if (!set || !isFinite(rawHp) || rawHp <= 0) return null;
+        return { hpBelow: Math.min(99, rawHp), set: set };
+    }).filter(Boolean) : [];
+    return {
+        id: id,
+        name: String(raw.name || id),
+        attackPick: (pick === "random" || pick === "first") ? pick : "cycle",
+        states: states,
+        phases: phases
+    };
+}
+
+function proFinishBattleLoad() {
+    proBsetsReady = true;
+    proBsetsPending = 0;
+}
+
+function proLoadBattleFile(file) {
+    proBsetLoadJson(PRO_BSET_FOLDER + file,
+        raw => {
+            try {
+                const set = proSanitizeBattleSet(raw);
+                if (set) proBsets[set.id] = set;
+            } catch (e) { proWarn("Bad battle set file:", file); }
+            proBsetsPending--;
+            if (proBsetsPending <= 0) proFinishBattleLoad();
+        },
+        () => {
+            proBsetsPending--;
+            if (proBsetsPending <= 0) proFinishBattleLoad();
+        });
+}
+
+function proLoadBattleSets() {
+    proBsetLoadJson(PRO_BSET_FOLDER + PRO_BSET_REGISTRY,
+        data => {
+            let entries = [];
+            if (Array.isArray(data)) entries = data;
+            else if (data && Array.isArray(data.sets)) entries = data.sets;
+            const files = [];
+            for (const e of entries) {
+                if (e && typeof e.file === "string" && e.file) {
+                    files.push(String(e.file).replace(/^.*[\\/]/, ""));
+                }
+            }
+            if (!files.length) { proFinishBattleLoad(); return; }
+            proBsetsPending = files.length;
+            for (const f of files) proLoadBattleFile(f);
+        },
+        () => {
+            // No battle sets authored: fine, director stays dormant.
+            proBsets = {};
+            proFinishBattleLoad();
+        });
+}
+
+function proBattleSetsReady() {
+    return proBsetsReady && proBsetsPending <= 0;
+}
+
+const _FM2_DataManager_loadDatabase = DataManager.loadDatabase;
+DataManager.loadDatabase = function() {
+    _FM2_DataManager_loadDatabase.call(this);
+    try { proLoadBattleSets(); } catch (e) { proWarn("Battle registry load failed:", e); }
+};
+
+const _FM2_Scene_Boot_isReady = Scene_Boot.prototype.isReady;
+Scene_Boot.prototype.isReady = function() {
+    return _FM2_Scene_Boot_isReady.call(this) && proBattleSetsReady();
+};
+
+// ---- Set assignment ----------------------------------------------------
+
+Game_FrameMaster.prototype.assignBattleSet = function(battler, setId, opts) {
+    const api = proApi();
+    if (!api) return false;
+    const b = proResolveBattler(battler);
+    if (!b) {
+        proWarn("assignBattleSet: unknown battler.");
+        return false;
+    }
+    const id = String(setId || "").trim();
+    if (!id || !proBsets[id]) {
+        proWarn('assignBattleSet: unknown battle set "' + setId + '". Check FM_BattleSets.json.');
+        return false;
+    }
+    b._fmBSet = id;
+    b._fmBAtk = 0;
+    if (!opts || opts.enter !== false) proBattleEnter(b);
+    return true;
+};
+
+Game_FrameMaster.prototype.clearBattleSet = function(battler) {
+    const api = proApi();
+    if (!api) return false;
+    const b = proResolveBattler(battler);
+    if (!b) {
+        proWarn("clearBattleSet: unknown battler.");
+        return false;
+    }
+    b._fmBSet = null;
+    b._fmBAtk = 0;
+    return api.stopBattler(b);
+};
+
+Game_FrameMaster.prototype.getBattlerSet = function(battler) {
+    const b = proResolveBattler(battler);
+    return (b && b._fmBSet) || null;
+};
+
+Game_FrameMaster.prototype.listBattleSets = function() {
+    return Object.values(proBsets).map(s => ({ id: s.id, name: s.name }));
+};
+
+// ---- Director core -----------------------------------------------------
+
+function proSetOf(battler) {
+    try {
+        const id = battler && battler._fmBSet;
+        if (!id || !proBsets[id]) return null;
+        return proBsets[id];
+    } catch (e) {
+        return null;
+    }
+}
+
+function proIsDead(battler) {
+    try {
+        return typeof battler.isDead === "function" && !!battler.isDead();
+    } catch (e) {
+        return false;
+    }
+}
+
+function proPlayIdle(battler, blend) {
+    const api = proApi();
+    if (!api || !battler) return false;
+    const set = proSetOf(battler);
+    const idle = set && set.states.idle;
+    if (!idle) return false;
+    if (api.getBattlerAnimation(battler) === idle && api.isBattlerPlaying(battler)) {
+        return true; // already there: never restart, never churn
+    }
+    return api.playBattler(battler, idle, { blend: blend });
+}
+
+// One-shot state (-> idle, or release on death). Powers appear, attacks,
+// skills, items, hits, evades and dies with a single code path.
+function proOneShot(battler, animId, opts) {
+    const api = proApi();
+    if (!api || !battler || !animId) return false;
+    opts = opts || {};
+    return api.playBattler(battler, animId, {
+        loop: false,
+        speed: opts.speed,
+        blend: opts.blend,
+        onComplete: function() {
+            try {
+                const set = proSetOf(battler);
+                if (!set) return;
+                if (proIsDead(battler)) {
+                    api.stopBattler(battler);
+                    return;
+                }
+                proPlayIdle(battler, opts.blend);
+            } catch (e) { /* never break the battle flow */ }
+        }
+    });
+}
+
+// Manual trigger of ANY named state (scripters' escape hatch for custom
+// moments). Looping states (idle/defend/victory) hold; the rest one-shot.
+Game_FrameMaster.prototype.playBattlerState = function(battler, stateName, opts) {
+    const api = proApi();
+    if (!api) return false;
+    const b = proResolveBattler(battler);
+    if (!b) {
+        proWarn("playBattlerState: unknown battler.");
+        return false;
+    }
+    const set = proSetOf(b);
+    const key = String(stateName || "").trim();
+    const anim = (set && set.states[key]) || null;
+    if (!anim) return false;
+    opts = opts || {};
+    if (key === "idle" || key === "defend" || key === "victory") {
+        return api.playBattler(b, anim, { speed: opts.speed, blend: opts.blend });
+    }
+    return proOneShot(b, anim, opts);
+};
+
+function proPickAttack(battler, set) {
+    const cands = ["attack1", "attack2", "attack3"]
+        .map(k => set.states[k]).filter(Boolean);
+    if (!cands.length) return null;
+    const mode = set.attackPick || "cycle";
+    if (mode === "random") return cands[Math.floor(Math.random() * cands.length)];
+    if (mode === "first") return cands[0];
+    const i = (Math.floor(Number(battler._fmBAtk) || 0)) % cands.length;
+    battler._fmBAtk = i + 1;
+    return cands[i];
+}
+
+// Battle entry: appear once (-> idle chain) or straight to idle.
+function proBattleEnter(battler) {
+    const set = proSetOf(battler);
+    if (!set) return false;
+    if (set.states.appear) return proOneShot(battler, set.states.appear, {});
+    return proPlayIdle(battler);
+}
+
+// Phase swap on HP thresholds (deepest match wins). Silent idle swap.
+function proCheckPhases(battler) {
+    try {
+        const cur = battler && battler._fmBSet;
+        const set = cur && proBsets[cur];
+        if (!set || !set.phases || !set.phases.length) return;
+        if (proIsDead(battler)) return;
+        let rate = 1;
+        try { rate = Number(battler.hpRate()); } catch (e) { return; }
+        if (!isFinite(rate)) return;
+        let best = null;
+        for (const ph of set.phases) {
+            if (!ph || !ph.set || !proBsets[ph.set]) continue;
+            if (rate * 100 < ph.hpBelow && (!best || ph.hpBelow < best.hpBelow)) {
+                best = ph;
+            }
+        }
+        if (best && best.set !== cur) {
+            battler._fmBSet = best.set;
+            battler._fmBAtk = 0;
+            proPlayIdle(battler);
+        }
+    } catch (e) { /* phases never break battles */ }
+}
+
+// Safety net: a finished one-shot with no callback left (e.g. battle save
+// loaded mid-animation) resumes idle instead of freezing on a frame.
+function proWatchdog(battler) {
+    try {
+        if (typeof Game_Battler === "undefined" || !(battler instanceof Game_Battler)) return;
+        const st = battler._fmState;
+        if (!st || st.playing) return;
+        if (proIsDead(battler)) return;
+        const set = proSetOf(battler);
+        const idle = set && set.states.idle;
+        if (!idle || st.animId === idle) return;
+        proPlayIdle(battler);
+    } catch (e) { /* watchdog never breaks battles */ }
+}
+
+// ---- Battle hooks (base class: Actor + Enemy overrides chain to it) ----
+
+const _FM2_performActionStart = Game_Battler.prototype.performActionStart;
+Game_Battler.prototype.performActionStart = function(action) {
+    _FM2_performActionStart.call(this, action);
+    try {
+        const set = proSetOf(this);
+        if (!set || !action) return;
+        if (typeof action.isGuard === "function" && action.isGuard()) {
+            if (set.states.defend) proPlayIdleDefend(this, set);
+            return;
+        }
+        let anim = null;
+        try {
+            if (typeof action.isAttack === "function" && action.isAttack()) {
+                anim = proPickAttack(this, set);
+            } else if (typeof action.isSkill === "function" && action.isSkill()) {
+                anim = set.states.skill || null;
+            } else if (typeof action.isItem === "function" && action.isItem()) {
+                anim = set.states.item || null;
+            }
+        } catch (e) { anim = null; }
+        if (anim) proOneShot(this, anim, {});
+    } catch (e) {
+        proWarn("Director action hook failed:", e);
+    }
+};
+
+function proPlayIdleDefend(battler, set) {
+    const api = proApi();
+    if (!api) return false;
+    // Defend is a stance: loop until the next trigger replaces it.
+    if (api.getBattlerAnimation(battler) === set.states.defend && api.isBattlerPlaying(battler)) {
+        return true;
+    }
+    return api.playBattler(battler, set.states.defend, {});
+}
+
+const _FM2_performDamage = Game_Battler.prototype.performDamage;
+Game_Battler.prototype.performDamage = function() {
+    _FM2_performDamage.call(this);
+    try {
+        const set = proSetOf(this);
+        if (!set) return;
+        proCheckPhases(this); // HP already updated: swap set first…
+        const fresh = proSetOf(this); // …then react with the (maybe new) set
+        if (!fresh || proIsDead(this)) return; // collapse hook owns death
+        if (fresh.states.hit) proOneShot(this, fresh.states.hit, {});
+    } catch (e) {
+        proWarn("Director damage hook failed:", e);
+    }
+};
+
+const _FM2_performEvasion = Game_Battler.prototype.performEvasion;
+Game_Battler.prototype.performEvasion = function() {
+    _FM2_performEvasion.call(this);
+    try {
+        const set = proSetOf(this);
+        if (set && set.states.evade && !proIsDead(this)) proOneShot(this, set.states.evade, {});
+    } catch (e) {
+        proWarn("Director evasion hook failed:", e);
+    }
+};
+
+const _FM2_performMagicEvasion = Game_Battler.prototype.performMagicEvasion;
+Game_Battler.prototype.performMagicEvasion = function() {
+    _FM2_performMagicEvasion.call(this);
+    try {
+        const set = proSetOf(this);
+        if (set && set.states.evade && !proIsDead(this)) proOneShot(this, set.states.evade, {});
+    } catch (e) {
+        proWarn("Director evasion hook failed:", e);
+    }
+};
+
+const _FM2_performCollapse = Game_Battler.prototype.performCollapse;
+Game_Battler.prototype.performCollapse = function() {
+    _FM2_performCollapse.call(this);
+    try {
+        const set = proSetOf(this);
+        if (set && set.states.die) proOneShot(this, set.states.die, {});
+    } catch (e) {
+        proWarn("Director collapse hook failed:", e);
+    }
+};
+
+const _FM2_Game_Actor_performVictory = Game_Actor.prototype.performVictory;
+Game_Actor.prototype.performVictory = function() {
+    _FM2_Game_Actor_performVictory.call(this);
+    try {
+        const set = proSetOf(this);
+        if (set && set.states.victory) {
+            const api = proApi();
+            if (api) api.playBattler(this, set.states.victory, {});
+        }
+    } catch (e) {
+        proWarn("Director victory hook failed:", e);
+    }
+};
+
+// Battle start: wipe map-bred playback (fresh battle visuals), keep the
+// assignments, then run every set's entry (appear -> idle, or idle).
+const _FM2_BattleManager_startBattle = BattleManager.startBattle;
+BattleManager.startBattle = function() {
+    _FM2_BattleManager_startBattle.call(this);
+    try {
+        const sweep = [];
+        try {
+            if (typeof $gameParty !== "undefined" && $gameParty) {
+                sweep.push(...$gameParty.members());
+            }
+        } catch (e) {}
+        try {
+            if (typeof $gameTroop !== "undefined" && $gameTroop) {
+                sweep.push(...$gameTroop.members());
+            }
+        } catch (e) {}
+        for (const b of sweep) {
+            if (!b) continue;
+            if (b._fmState) {
+                b._fmState = null;
+                b._fmNeedsResync = true;
+            }
+            proBattleEnter(b);
+        }
+    } catch (e) {
+        proWarn("Director battle-start sweep failed:", e);
+    }
+};
+
+// ---- Plugin commands (dual namespace: new "FrameMaster" + legacy
+// "FrameMasterPRO" so existing events keep working after the v2.0.0 merge) ----
+
+function proCommandBattler(args, interpreter) {
+    const side = String(args.side || "enemy");
+    const id = Math.floor(Number(args.id) || 0);
+    if (side === "actor" && typeof $gameActors !== "undefined" && $gameActors) {
+        return $gameActors.actor(id);
+    }
+    if (typeof $gameTroop !== "undefined" && $gameTroop) {
+        const members = $gameTroop.members();
+        return (id >= 0 && id < members.length) ? members[id] : null;
+    }
+    // "this" is the interpreter: only meaningful for pictures, not battlers.
+    void interpreter;
+    return null;
+}
+
+function proCmdPlayBattler(args) {
+    const api = proApi();
+    if (!api) return;
+    const b = proCommandBattler(args, this);
+    if (!b) {
+        proWarn("PlayBattler: battler not found (side=" + args.side + " id=" + args.id + "). Enemies use 0-based troop order.");
+        return;
+    }
+    api.playBattler(b, String(args.animation || "").trim(), {
+        loop: String(args.loop || "default") === "true" ? true : String(args.loop) === "false" ? false : undefined,
+        speed: Math.min(8, Math.max(0.1, Number(args.speed) || 1.0)),
+        blend: Number(args.blend) < 0 ? undefined : Math.max(0, Number(args.blend) || 0)
+    });
+}
+
+function proCmdStopBattler(args) {
+    const api = proApi();
+    if (!api) return;
+    const b = proCommandBattler(args, this);
+    if (b) api.stopBattler(b);
+}
+
+function proCmdPlayPicture(args) {
+    const api = proApi();
+    if (!api) return;
+    const id = Math.floor(Number(args.pictureId) || 0);
+    if (!(id >= 1 && id <= 100)) {
+        proWarn("PlayPicture: picture id must be 1-100.");
+        return;
+    }
+    api.playPicture(id, String(args.animation || "").trim(), {
+        loop: String(args.loop || "default") === "true" ? true : String(args.loop) === "false" ? false : undefined,
+        speed: Math.min(8, Math.max(0.1, Number(args.speed) || 1.0)),
+        blend: Number(args.blend) < 0 ? undefined : Math.max(0, Number(args.blend) || 0)
+    });
+}
+
+function proCmdStopPicture(args) {
+    const api = proApi();
+    if (!api) return;
+    const id = Math.floor(Number(args.pictureId) || 0);
+    if (id >= 1 && id <= 100) api.stopPicture(id);
+}
+
+function proCmdBattleSetup(args) {
+    const api = proApi();
+    if (!api) return;
+    const scope = String(args.scope || "enemy");
+    const id = Math.floor(Number(args.id) || 0);
+    const setId = String(args.set || "").trim();
+    const targets = [];
+    try {
+        if ((scope === "enemy" || scope === "allEnemies") && typeof $gameTroop !== "undefined" && $gameTroop) {
+            const members = $gameTroop.members();
+            if (scope === "enemy") {
+                if (id >= 0 && id < members.length) targets.push(members[id]);
+            } else {
+                targets.push(...members);
+            }
+        }
+        if ((scope === "actor" || scope === "allActors") && typeof $gameParty !== "undefined" && $gameParty) {
+            if (scope === "actor" && typeof $gameActors !== "undefined" && $gameActors) {
+                const a = $gameActors.actor(id);
+                if (a) targets.push(a);
+            } else {
+                targets.push(...$gameParty.members());
+            }
+        }
+    } catch (e) {
+        proWarn("BattleSetup resolve failed:", e);
+    }
+    if (!targets.length) {
+        proWarn("BattleSetup: no battlers matched (scope=" + scope + " id=" + id + ").");
+        return;
+    }
+    for (const b of targets) {
+        if (!setId) api.clearBattleSet(b);
+        else api.assignBattleSet(b, setId);
+    }
+}
+
+PluginManager.registerCommand(PLUGIN_NAME, "PlayBattler", proCmdPlayBattler);
+PluginManager.registerCommand("FrameMasterPRO", "PlayBattler", proCmdPlayBattler);
+PluginManager.registerCommand(PLUGIN_NAME, "StopBattler", proCmdStopBattler);
+PluginManager.registerCommand("FrameMasterPRO", "StopBattler", proCmdStopBattler);
+PluginManager.registerCommand(PLUGIN_NAME, "PlayPicture", proCmdPlayPicture);
+PluginManager.registerCommand("FrameMasterPRO", "PlayPicture", proCmdPlayPicture);
+PluginManager.registerCommand(PLUGIN_NAME, "StopPicture", proCmdStopPicture);
+PluginManager.registerCommand("FrameMasterPRO", "StopPicture", proCmdStopPicture);
+PluginManager.registerCommand(PLUGIN_NAME, "BattleSetup", proCmdBattleSetup);
+PluginManager.registerCommand("FrameMasterPRO", "BattleSetup", proCmdBattleSetup);
+
+PluginManager.registerCommand(PLUGIN_NAME, "PlayBattlerOnce", function(args) {
+    if (!$gameFrameMaster) return;
+    const b = proCommandBattler(args, this);
+    if (!b) {
+        proWarn("PlayBattlerOnce: battler not found (side=" + args.side + " id=" + args.id + ").");
+        return;
+    }
+    $gameFrameMaster.playBattlerOnce(b, String(args.animation || "").trim(), {
+        speed: Math.min(8, Math.max(0.1, Number(args.speed) || 1.0)),
+        blend: Number(args.blend) < 0 ? undefined : Math.max(0, Number(args.blend) || 0)
+    });
+});
+PluginManager.registerCommand("FrameMasterPRO", "PlayBattlerOnce", function(args) {
+    if (!$gameFrameMaster) return;
+    const b = proCommandBattler(args, this);
+    if (!b) return;
+    $gameFrameMaster.playBattlerOnce(b, String(args.animation || "").trim(), {
+        speed: Math.min(8, Math.max(0.1, Number(args.speed) || 1.0)),
+        blend: Number(args.blend) < 0 ? undefined : Math.max(0, Number(args.blend) || 0)
+    });
+});
+PluginManager.registerCommand(PLUGIN_NAME, "PlayPictureOnce", function(args) {
+    if (!$gameFrameMaster) return;
+    const id = Math.floor(Number(args.pictureId) || 0);
+    if (!(id >= 1 && id <= 100)) {
+        proWarn("PlayPictureOnce: picture id must be 1-100.");
+        return;
+    }
+    $gameFrameMaster.playPictureOnce(id, String(args.animation || "").trim(), {
+        speed: Math.min(8, Math.max(0.1, Number(args.speed) || 1.0)),
+        blend: Number(args.blend) < 0 ? undefined : Math.max(0, Number(args.blend) || 0)
+    });
+});
+PluginManager.registerCommand("FrameMasterPRO", "PlayPictureOnce", function(args) {
+    if (!$gameFrameMaster) return;
+    const id = Math.floor(Number(args.pictureId) || 0);
+    if (!(id >= 1 && id <= 100)) return;
+    $gameFrameMaster.playPictureOnce(id, String(args.animation || "").trim(), {
+        speed: Math.min(8, Math.max(0.1, Number(args.speed) || 1.0)),
+        blend: Number(args.blend) < 0 ? undefined : Math.max(0, Number(args.blend) || 0)
+    });
+});
+
+// ============================================================================
+// 11. Layers — visual equipment & overlays (Godot-style multi-sprite)
+// ----------------------------------------------------------------------------
+// A character keeps ONE base animation plus a stack of LAYERS drawn over it:
+//
+//   { slot: "weapon", suffix: "_iron" }   follows the base: base "hero_walk"
+//                                        + suffix "_iron" draws "hero_walk_iron"
+//   { slot: "halo", anim: "halo_loop" }  fixed overlay, any animation
+//
+// Layers share the base frameIndex (lockstep) and base timing; a layer whose
+// animation is missing (or still loading) is skipped silently that frame.
+// Offsets dx/dy nudge a layer in pixels. Max 8 layers (perf guard).
+//
+// Equipment sets suffix layers automatically from DB note tags:
+//   <fm-layer:weapon:_iron>   <fm-layer:cape:_red>
+// Manual LayerSet entries survive equip changes; equip-managed ones refresh.
+// ============================================================================
+
+Game_FrameMaster.prototype._sanitizeLayers = function(raw) {
+    if (!Array.isArray(raw)) return [];
+    const out = [];
+    const seen = new Set();
+    for (const e of raw) {
+        if (!e || typeof e !== "object") continue;
+        const slot = String(e.slot || "").trim();
+        if (!/^[A-Za-z0-9_]+$/.test(slot) || seen.has(slot)) continue;
+        const suffix = (typeof e.suffix === "string") ? e.suffix.trim() : "";
+        const anim = (typeof e.anim === "string") ? e.anim.trim() : "";
+        if (!suffix && !fmIsValidId(anim)) continue;
+        if (anim && !fmIsValidId(anim)) continue;
+        seen.add(slot);
+        out.push({
+            slot: slot,
+            suffix: suffix || null,
+            anim: anim || null,
+            dx: fmClampInt(e.dx, -500, 500, 0),
+            dy: fmClampInt(e.dy, -500, 500, 0),
+            auto: !!e.auto
+        });
+        if (out.length >= 8) break;
+    }
+    return out;
+};
+
+/** Replace the whole layer stack (validated). [] clears. */
+Game_FrameMaster.prototype.setLayers = function(character, layers) {
+    const ch = fmLayerOwner(this, character);
+    if (!ch) {
+        fmWarn("setLayers: unknown character:", character);
+        return false;
+    }
+    ch._fmLayers = this._sanitizeLayers(layers);
+    return true;
+};
+
+/** Clear one slot, or the whole stack when slot is omitted. */
+Game_FrameMaster.prototype.clearLayers = function(character, slot) {
+    const ch = fmLayerOwner(this, character);
+    if (!ch) {
+        fmWarn("clearLayers: unknown character:", character);
+        return false;
+    }
+    if (slot === undefined || slot === null || slot === "") {
+        ch._fmLayers = [];
+    } else {
+        const keep = String(slot);
+        ch._fmLayers = (Array.isArray(ch._fmLayers) ? ch._fmLayers : [])
+            .filter(l => l && l.slot !== keep);
+    }
+    return true;
+};
+
+/** A copy of the current stack (never the live array). */
+Game_FrameMaster.prototype.getLayers = function(character) {
+    const ch = fmLayerOwner(this, character);
+    if (!ch || !Array.isArray(ch._fmLayers)) return [];
+    return ch._fmLayers.map(l => ({
+        slot: l.slot, suffix: l.suffix || null, anim: l.anim || null,
+        dx: l.dx || 0, dy: l.dy || 0, auto: !!l.auto
+    }));
+};
+
+/**
+ * Compatibility hook for other plugins:
+ *   $gameFrameMaster.registerLayerProvider("myPlugin_weapon", ch => {
+ *     if (ch === $gamePlayer && $gameParty.leader().isStateAffected(10))
+ *       return { slot: "aura", anim: "poison_aura", dx: 0, dy: -8 };
+ *     return null;
+ *   });
+ * The provider is called every frame (keep it cheap) and may return a
+ * single layer object or an array. Returned layers are sanitized, deduped
+ * (manual/equip wins over provider) and capped at 8.
+ */
+Game_FrameMaster.prototype.registerLayerProvider = function(id, fn) {
+    if (!/^[A-Za-z0-9_]+$/.test(String(id || ""))) {
+        fmWarn("registerLayerProvider: id must be letters/digits/underscore.");
+        return false;
+    }
+    if (typeof fn !== "function") {
+        fmWarn("registerLayerProvider: provider must be a function(character) => layer|layers|null.");
+        return false;
+    }
+    this._layerProviders = this._layerProviders || [];
+    this._layerProviders = this._layerProviders.filter(p => p.id !== String(id));
+    this._layerProviders.push({ id: String(id), fn: fn });
+    fmLog("Layer provider registered:", id);
+    return true;
+};
+
+Game_FrameMaster.prototype.unregisterLayerProvider = function(id) {
+    if (!this._layerProviders) return false;
+    const before = this._layerProviders.length;
+    this._layerProviders = this._layerProviders.filter(p => p.id !== String(id));
+    return this._layerProviders.length !== before;
+};
+
+Game_FrameMaster.prototype.listLayerProviders = function() {
+    return (this._layerProviders || []).map(p => p.id);
+};
+
+// Effective layer list: manual stack first, else the underlying actor's
+// equipment layers (player = party leader, followers = their actor).
+function fmAvatarLayers(ch) {
+    try {
+        if (ch && Array.isArray(ch._fmLayers) && ch._fmLayers.length) {
+            return ch._fmLayers;
+        }
+        let actor = null;
+        if (typeof Game_Follower !== "undefined" && (ch instanceof Game_Follower)) {
+            if (ch.actor && typeof ch.actor === "function") actor = ch.actor();
+        } else if (typeof $gamePlayer !== "undefined" && ch === $gamePlayer) {
+            if (typeof $gameParty !== "undefined" && $gameParty &&
+                typeof $gameParty.leader === "function") {
+                actor = $gameParty.leader();
+            }
+        }
+        if (actor && Array.isArray(actor._fmLayers) && actor._fmLayers.length) {
+            return actor._fmLayers;
+        }
+    } catch (e) { /* fall through to no layers */ }
+    return [];
+}
+
+/**
+ * Resolved per-frame layer views for rendering.
+ * [{ slot, bitmap, sx, sy, sw, sh, anchorX, anchorY, dx, dy }]
+ */
+Game_FrameMaster.prototype.layerViews = function(character) {
+    return this.layerViewsFor(this.resolveCharacter(character));
+};
+
+/** Same, for an already-resolved owner (characters, battlers, pictures). */
+Game_FrameMaster.prototype.layerViewsFor = function(owner) {
+    const ch = owner;
+    if (!ch || !ch._fmState) return [];
+    const st = ch._fmState;
+    const base = this.getAnimation(st.animId);
+    if (!base) return [];
+    let layers = fmAvatarLayers(ch);
+    // External providers (compat API) — appended, manual/equip wins on slot collision
+    if (Array.isArray(this._layerProviders) && this._layerProviders.length) {
+        const extra = [];
+        for (const p of this._layerProviders) {
+            try {
+                const r = p.fn(ch);
+                if (!r) continue;
+                if (Array.isArray(r)) extra.push(...r);
+                else extra.push(r);
+            } catch (e) {
+                fmWarn("layer provider", p.id, "failed:", e);
+            }
+        }
+        if (extra.length) {
+            layers = this._sanitizeLayers(layers.concat(extra));
+        }
+    }
+    if (!layers.length) return [];
+    const out = [];
+    for (const L of layers) {
+        if (!L || typeof L.slot !== "string" || !L.slot) continue;
+        let animId = null;
+        if (typeof L.suffix === "string" && L.suffix) animId = st.animId + L.suffix;
+        else if (typeof L.anim === "string" && L.anim) animId = L.anim;
+        if (!animId) continue;
+        const anim = this.getAnimation(animId);
+        if (!anim || !anim.frames || !anim.frames.length) continue;
+        const frame = anim.frames[st.frameIndex % anim.frames.length];
+        if (!frame) continue;
+        const bmp = this.bitmapFor(frame.source || frame.img);
+        if (!bmp || !bmp.isReady || !bmp.isReady()) continue;
+        out.push({
+            slot: L.slot,
+            bitmap: bmp,
+            sx: frame.rect ? frame.rect.x : 0,
+            sy: frame.rect ? frame.rect.y : 0,
+            sw: frame.rect ? frame.rect.w : bmp.width,
+            sh: frame.rect ? frame.rect.h : bmp.height,
+            anchorX: anim.anchorX,
+            anchorY: anim.anchorY,
+            dx: fmClampInt(L.dx, -500, 500, 0),
+            dy: fmClampInt(L.dy, -500, 500, 0)
+        });
+        if (out.length >= 8) break;
+    }
+    return out;
+};
+
+/** Draw (or hide) the layer pool of a map-character sprite. */
+Game_FrameMaster.prototype.fmDrawLayers = function(sprite, character) {
+    if (!sprite) return;
+    let views = [];
+    try {
+        views = this.layerViews(character);
+    } catch (e) {
+        views = [];
+    }
+    try {
+        fmPaintLayers(sprite, views);
+    } catch (e) { /* layers never break sprites */ }
+};
+
+/** Same, for an already-resolved owner (used by battler sprites). */
+Game_FrameMaster.prototype.fmDrawLayersFor = function(sprite, owner) {
+    if (!sprite) return;
+    let views = [];
+    try {
+        views = this.layerViewsFor(owner);
+    } catch (e) {
+        views = [];
+    }
+    try {
+        fmPaintLayers(sprite, views);
+    } catch (e) { /* layers never break sprites */ }
+};
+
+// Owner resolver for layer APIs: map characters resolve normally, any other
+// object with layer state (battlers, pictures) passes through untouched.
+function fmLayerOwner(api, ref) {
+    try {
+        const ch = api.resolveCharacter(ref);
+        if (ch) return ch;
+        if (ref && (typeof ref === "object" || typeof ref === "function")) return ref;
+    } catch (e) { /* fall through to null */ }
+    return null;
+}
+
+// ---- Equipment -> layers (DB note tags, zero events needed) --------------
+// Tag weapons/armors with e.g.  <fm-layer:weapon:_iron>
+// and equipping rebuilds the actor's auto layers; unequipping clears them.
+
+Game_FrameMaster.prototype.fmRebuildEquipLayers = function(actor) {
+    if (!actor || !Array.isArray(actor._equips)) return false;
+    let equips = [];
+    try {
+        equips = (typeof actor.equips === "function") ? (actor.equips() || []) : [];
+    } catch (e) {
+        return false;
+    }
+    const prev = Array.isArray(actor._fmLayers) ? actor._fmLayers : [];
+    const manual = prev.filter(l => l && !l.auto);
+    const seen = new Set(manual.map(l => l.slot));
+    const auto = [];
+    for (const item of equips) {
+        if (!item || typeof item.note !== "string" || !item.note) continue;
+        const re = /<\s*fm-layer\s*:\s*([A-Za-z0-9_]+)\s*:\s*([^<>\s]+)\s*>/gi;
+        let m = null;
+        while ((m = re.exec(item.note)) !== null) {
+            const slot = m[1];
+            if (seen.has(slot)) continue;
+            seen.add(slot);
+            auto.push({ slot: slot, suffix: m[2], anim: null, dx: 0, dy: 0, auto: true });
+            if (manual.length + auto.length >= 8) break;
+        }
+        if (manual.length + auto.length >= 8) break;
+    }
+    actor._fmLayers = manual.concat(auto);
+    return true;
+};
+
+const _FM_Game_Actor_refresh = Game_Actor.prototype.refresh;
+Game_Actor.prototype.refresh = function() {
+    _FM_Game_Actor_refresh.call(this);
+    // Single choke point: equip screen, event commands, class changes and
+    // new-game setup all flow through here. Pure read + assign, no recursion.
+    try {
+        if (typeof $gameFrameMaster !== "undefined" && $gameFrameMaster) {
+            $gameFrameMaster.fmRebuildEquipLayers(this);
+        }
+    } catch (e) { /* equipment never breaks actors */ }
+};
+
+// ============================================================================
+// 12. Public exports / test seam
 // ============================================================================
 
 const FrameMaster_API = {
-    version: "1.2.0",
+    version: "2.3.0",
     Game_FrameMaster: Game_FrameMaster,
     Scene_FrameMaster: Scene_FrameMaster,
     Window_FmAnimList: Window_FmAnimList,
     Window_FmProps: Window_FmProps,
     sanitizeAnimation: fmSanitizeAnimation,
     sanitizeFrame: fmSanitizeFrame,
-    config: FM_Config
+    sanitizeLayers: Game_FrameMaster.prototype._sanitizeLayers,
+    config: FM_Config,
+    // Shorthand for early plugin load: queues until $gameFrameMaster exists
+    registerLayerProvider(id, fn) {
+        if (typeof window !== "undefined" && window.$gameFrameMaster && window.$gameFrameMaster.registerLayerProvider) {
+            return window.$gameFrameMaster.registerLayerProvider(id, fn);
+        }
+        FM_pendingLayerProviders.push({ id: String(id), fn: fn });
+        return true;
+    },
+    unregisterLayerProvider(id) {
+        if (typeof window !== "undefined" && window.$gameFrameMaster && window.$gameFrameMaster.unregisterLayerProvider) {
+            return window.$gameFrameMaster.unregisterLayerProvider(id);
+        }
+        const idx = FM_pendingLayerProviders.findIndex(p => p.id === String(id));
+        if (idx !== -1) FM_pendingLayerProviders.splice(idx, 1);
+        return idx !== -1;
+    }
 };
 
 if (typeof window !== "undefined") {
     window.FrameMaster = FrameMaster_API;
+    // Deprecated v1.x PRO namespace: the file is gone, the API lives here.
+    window.FrameMasterPRO = { version: FrameMaster_API.version, mergedInto: "FrameMaster" };
 }
 // CommonJS seam so the logic can be smoke-tested with plain node.
 if (typeof module !== "undefined" && module.exports) {

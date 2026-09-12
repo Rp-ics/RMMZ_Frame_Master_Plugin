@@ -13,5 +13,20 @@
     "id": "slime_bounce",
     "name": "Slime Bounce (ping-pong)",
     "file": "slime_bounce.json"
+  },
+  {
+    "id": "slime_attack",
+    "name": "Slime Attack",
+    "file": "slime_attack.json"
+  },
+  {
+    "id": "slime_hit",
+    "name": "Slime Hit",
+    "file": "slime_hit.json"
+  },
+  {
+    "id": "slime_die",
+    "name": "Slime Die",
+    "file": "slime_die.json"
   }
 ]

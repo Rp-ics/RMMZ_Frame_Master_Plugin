@@ -1,4 +1,4 @@
-# FrameMaster MZ — Manual (v1.2.0)
+# FrameMaster MZ — Manual (v2.3.0)
 
 Unlimited frame-by-frame character animations for RPG Maker MZ, with a visual
 editor. Godot's `AnimatedSprite2D` philosophy, zero code required.
@@ -44,6 +44,8 @@ Open it in **Chrome or Edge** (only they allow folder auto-save).
    thumbnail to append it, or drop loose PNGs via the file picker.
 4. **Sprite sheets**: pick the sheet, enter frame W/H, *Preview grid* to
    verify, *Slice → append* to generate one frame per cell.
+   **Aseprite**: export JSON (Array or Hash) + PNG sheet, then *Import JSON*
+   — the forge creates the animation(s) automatically (one per `frameTag`).
 5. **Timeline**: drag to reorder; click / Ctrl-click / Shift-click to select;
    batch-apply duration, clear events, or delete.
 6. **Preview**: Space = play/pause, ←/→ = step frames, speed slider,
@@ -83,9 +85,10 @@ shows the original charset sprite.
 
 From then on the character drives itself: stopped plays idle, moving plays
 walk, dashing plays dash (or walk when Dash is empty). Fill the optional
-`IdleDown…WalkRight` fields only if you made directional variants; anything
-left empty falls back to Idle/Walk, and situations with no animation at all
-show the original charset sprite.
+directional fields — 4 cardinals (`IdleDown`…`WalkRight`) plus 4 diagonals
+(`WalkDownLeft` … `WalkUpRight`, stateless vector, works with Altimit and
+pixel movers without any extra marker) — and anything left empty falls back
+to Idle/Walk; no animation at all shows the original charset sprite.
 
 Rules: a manual **Play** pauses the auto-pilot (for cutscenes etc.) and
 **Stop** resumes it; **AutoStop** disables it completely. The mapping is
@@ -101,6 +104,34 @@ Each animation picks how it loops (visual editor → Loop mode):
 
 Modes apply to looping playback; a play-once animation always runs straight
 `0…n` and then fires `onComplete`.
+
+## 3c2. Layers — visual equipment (no code)
+
+One base animation + stacked layers sharing its frame. Two kinds:
+
+- **Suffix** (equipment that follows): `{ slot: "weapon", suffix: "_iron" }`
+  draws `hero_walk_iron` under base `hero_walk`, `hero_idle_iron` under
+  `hero_idle` — automatic across auto-pilot, blends and battle states.
+  A missing variant hides that slot for that base, no error.
+- **Fixed** (overlays): `{ slot: "halo", anim: "halo_loop" }`, any animation.
+
+Tag database weapons/armors with `<fm-layer:weapon:_iron>` (slot + suffix)
+and equipping rebuilds the slot by itself; unequipping clears it. Manual
+`LayerSet` entries survive equip changes. Player reads the party leader,
+followers read their actor, battlers read the same actor in battle
+(actor = `_mainSprite`, enemy = self) — so a sword iron stays on the
+slash animation too. Per-layer `dx`/`dy` nudge pixels; max 8 layers;
+layers save with the game. Check alignment in the forge preview (Layers
+row under the preview bar).
+
+## 3c3. One-shots — independent actions (no profile needed)
+
+Any character, battler or picture can play a **one-shot** (`PlayOnce`,
+`PlayBattlerOnce`, `PlayPictureOnce`) — loop forced off. Characters with
+an auto-pilot resume it afterwards; others return to the native sprite.
+Perfect for emotes, chest openings or hit flashes on characters that have
+no permanent animations, or for .webp frames (same as PNG, just name
+`name.webp` — 60-80% smaller).
 
 ## 3d. Exporting outside MZ (online forge)
 
@@ -167,18 +198,36 @@ touching the authored durations.
 
 ---
 
-## 7. Compatibility & limits (v1)
+## 7. Compatibility & limits (v2.3.0 — everything free)
 
-- MZ **1.8+**. Place FrameMaster **below** other character-visual plugins.
-- Targets: **Player + map Events** (followers/vehicles supported by the API).
-  Pictures and battlers are untouched — coming in v2.
-- Frame events: **SE / Common Event / Switch** (script calls arrive in v2;
-  the schema already ignores unknown types safely).
-- Saves store animation + frame per character on `$gameSystem`; mid-animation
-  saves restore cleanly. Deleted animation files degrade to the native sprite
-  with a console warning — never a crash.
-- Encrypted deploys: exclude `img/framemaster/` from encryption, or keep
-  preloading ON.
+- **MZ 1.8+**. Place FrameMaster **below** other character-visual plugins
+  (VisuStella Events & Movement Core, etc.).
+- **Characters**: Player + Events + Followers + Vehicles — with **8-dir**
+  auto-pilot (cardinal + diagonal via real-vs-logical vector, works with any
+  pixel mover: Altimit Movement, Rosedale Collision, Half Move).
+- **Battlers & Pictures**: fully supported (side/front view, map pictures)
+  with Battle Director, hit-flash and collapse intact.
+- **Layers**: map characters + battlers (actor `_mainSprite` / enemy self),
+  suffix/fixed, 8 max, lockstep; auto-equip via `<fm-layer:slot:suffix>`.
+- **Images**: `.png` and `.webp` (60-80% smaller) — same API, LRU cache
+  (220 bitmaps) prevents OOM with hundreds of frames; proximity preload on
+  map start when enabled.
+- **Frame events**: SE / Common Event / Switch / **Script** (`owner`, `fm`).
+- **One-shots**: `PlayOnce` family for independent actions (auto-resumes).
+- **Saves**: animation + layers + auto-pilot ride on `$gameSystem`;
+  mid-animation / mid-battle saves restore cleanly. Missing files degrade to
+  native sprite with a warning — never a crash.
+- **Encrypted deploys**: exclude `img/framemaster/` or keep preloading ON.
+- **MZ3D**: no explicit 3D-safe mode yet — anchor offsets are 2D only;
+  reported compatible, but test your 3D scene. Use `anchor 0.5,1` for ground.
+
+| Plugin / Feature | Status |
+|---|---|
+| VisuStella Events & Movement Core (8-dir, dash) | ✅ Auto-pilot reads `isMoving`/`direction`/`isDashing` — no patch needed |
+| Altimit Movement / Rosedale / Half Move (pixel) | ✅ Vector `realX/Y - x/y` catches sub-tile drift |
+| MZ3D (3D) | ⚠️ No 3D anchor; 2D layers/battlers work, 3D characters need test |
+| Yami 8Dir Ex / other 8-dir movers | ✅ Direction codes 1/3/7/9 mapped, vector fallback |
+| Aseprite sheet+JSON | ✅ Import in forge (Array/Hash, frameTags → anims) |
 
 ---
 

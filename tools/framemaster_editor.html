@@ -82,6 +82,9 @@
   .evRow { border: 1px solid var(--line); border-radius: 6px; padding: 6px;
     margin: 6px 0; background: var(--panel2); font-size: 12px; }
   .evRow .row label { min-width: 52px; }
+  .codeBox { width: 100%; min-height: 64px; background: #101319; color: var(--txt);
+    border: 1px solid var(--line); border-radius: 6px; font-family: monospace;
+    font-size: 12px; padding: 6px; }
   #toasts { position: fixed; bottom: 12px; right: 12px; display: flex;
     flex-direction: column; gap: 6px; z-index: 50; }
   .toast { background: var(--panel2); border: 1px solid var(--acc);
@@ -110,7 +113,7 @@
       <button id="btnAddSelected" class="primary" title="Append every PNG found in img/framemaster/ as frames, sorted by file name">Add all PNGs as frames</button>
     </div>
     <p class="hint">Reads <b>img/framemaster/</b> from the opened project folder. Files are sorted by name. Or pick loose files:</p>
-    <div class="row"><input type="file" id="fileInput" accept="image/png" multiple></div>
+    <div class="row"><input type="file" id="fileInput" accept="image/png,image/webp,.png,.webp" multiple></div>
     <div id="importGrid"></div>
     <h2>Sprite sheet slicer</h2>
     <div class="row"><label title="PNG inside img/framemaster/ used as the sheet">Sheet file</label><select id="sheetSelect"></select></div>
@@ -180,6 +183,7 @@
       <button id="btnAddSe" title="Play a sound effect on this frame">+ SE</button>
       <button id="btnAddCe" title="Reserve a common event on this frame">+ Common Event</button>
       <button id="btnAddSw" title="Flip a game switch on this frame">+ Switch</button>
+      <button id="btnAddScript" title="Run JavaScript on this frame (runs in game when the frame shows)">+ Script</button>
     </div>
     <div id="eventList"></div>
   </aside>
@@ -223,6 +227,7 @@ function setSave(msg, cls) {
 }
 
 // ---------------- schema ----------------
+/* FM-SAN-START */
 function clampInt(v, min, max, fb) {
   const n = Math.floor(Number(v));
   if (!isFinite(n)) return fb;
@@ -245,6 +250,12 @@ function sanitizeEvent(ev) {
   if (ev.type === "switch") {
     const id = clampInt(ev.id, 1, 9999, 0);
     return id > 0 ? { type: "switch", id, value: !!ev.value } : null;
+  }
+  if (ev.type === "script") {
+    // Script frame events run in game when the frame shows.
+    const code = String(ev.code || "");
+    if (!code.trim()) return null;
+    return { type: "script", code: code.slice(0, 5000) };
   }
   return null;
 }
@@ -279,6 +290,49 @@ function sanitizeAnim(raw) {
     ...(String(raw.anchorY) !== "" && isFinite(Number(raw.anchorY)) ? { anchorY: Math.min(1, Math.max(0, Number(raw.anchorY))) } : {}),
     frames };
 }
+/* FM-SAN-END */
+
+/* FM-ASEPRITE-START */
+function slugifyAse(name) {
+  return String(name || "anim").toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "") || "anim";
+}
+function asepriteToAnims(raw, fileName) {
+  if (!raw || typeof raw !== "object") return null;
+  let list = [];
+  if (Array.isArray(raw.frames)) list = raw.frames;
+  else if (raw.frames && typeof raw.frames === "object") list = Object.values(raw.frames);
+  else return null;
+  if (!list.length) return null;
+  const first = list[0];
+  if (!first || typeof first.frame !== "object" || typeof first.duration !== "number") return null;
+  let sheet = "";
+  if (raw.meta && typeof raw.meta.image === "string" && raw.meta.image.trim()) sheet = raw.meta.image.trim().replace(/^.*[\\/]/, "");
+  if (!sheet) {
+    sheet = String(fileName || "sheet.png").replace(/\.json$/i, ".png").replace(/^.*[\\/]/, "");
+    if (!/\.png$/i.test(sheet)) sheet += ".png";
+  }
+  const toFrame = (entry) => {
+    const r = entry.frame;
+    const dur = clampInt(Math.round(Number(entry.duration) * 60 / 1000), 1, 36000, 6);
+    return { img: sheet, source: sheet, rect: { x: clampInt(r.x, 0, 8192, 0), y: clampInt(r.y, 0, 8192, 0), w: clampInt(r.w, 1, 8192, 48), h: clampInt(r.h, 1, 8192, 48) }, duration: dur, events: [] };
+  };
+  const baseId = slugifyAse(String(fileName || sheet).replace(/\.json$/i, "").replace(/\.[^.]+$/, ""));
+  const tags = (raw.meta && Array.isArray(raw.meta.frameTags) && raw.meta.frameTags.length) ? raw.meta.frameTags : null;
+  if (tags) {
+    const out = [];
+    for (const tag of tags) {
+      if (!tag || typeof tag.name !== "string" || !tag.name.trim()) continue;
+      const from = clampInt(tag.from, 0, list.length - 1, 0);
+      const to = clampInt(tag.to, 0, list.length - 1, list.length - 1);
+      const slice = list.slice(Math.min(from, to), Math.max(from, to) + 1);
+      const id = slugifyAse(baseId + "_" + tag.name);
+      out.push({ id, name: tag.name, version: 1, loop: true, loopFrom: 0, loopMode: "normal", baseSpeed: 1.0, anchorX: 0.5, anchorY: 1.0, frames: slice.map(toFrame) });
+    }
+    if (out.length) return out;
+  }
+  return [{ id: baseId, name: baseId, version: 1, loop: true, loopFrom: 0, loopMode: "normal", baseSpeed: 1.0, anchorX: 0.5, anchorY: 1.0, frames: list.map(toFrame) }];
+}
+/* FM-ASEPRITE-END */
 function slugify(name) {
   return String(name || "anim").toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "") || "anim";
 }
@@ -333,7 +387,7 @@ async function writeTextFile(sub1, sub2, name, text) {
 async function refreshProject() {
   // images
   state.imgFiles = [];
-  const entries = await readDirFiles("img", "framemaster", n => /\.png$/i.test(n));
+  const entries = await readDirFiles("img", "framemaster", n => /\.(png|webp)$/i.test(n));
   entries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   for (const e of entries) {
     try {
@@ -353,7 +407,14 @@ async function refreshProject() {
       const file = await e.getFile();
       const raw = JSON.parse(await file.text());
       const clean = sanitizeAnim(raw);
-      if (clean) state.anims.push({ id: clean.id, name: clean.name, file: e.name, data: clean });
+      if (clean) { state.anims.push({ id: clean.id, name: clean.name, file: e.name, data: clean }); continue; }
+      const ase = asepriteToAnims(raw, e.name);
+      if (ase && ase.length) {
+        for (const cand of ase) {
+          const cc = sanitizeAnim(cand);
+          if (cc) state.anims.push({ id: cc.id, name: cc.name, file: cc.id + ".json", data: cc });
+        }
+      }
     } catch (err) { toast("Skipped invalid file: " + e.name, "err"); }
   }
   // registry may reference files; adopt orphans too
@@ -581,7 +642,8 @@ function renderEvents() {
     const row = document.createElement("div");
     row.className = "evRow";
     const title = document.createElement("div");
-    title.innerHTML = "<b>" + (ev.type === "se" ? "🔊 SE" : ev.type === "commonEvent" ? "📜 Common Event" : "🚩 Switch") + "</b>";
+    const evTitles = { se: "🔊 SE", commonEvent: "📜 Common Event", switch: "🚩 Switch", script: "⚡ Script" };
+    title.innerHTML = "<b>" + (evTitles[ev.type] || String(ev.type)) + "</b>";
     row.appendChild(title);
     const mkNum = (label, val, min, max, cb, step) => {
       const r = document.createElement("div"); r.className = "row";
@@ -616,6 +678,17 @@ function renderEvents() {
       c.type = "checkbox"; c.checked = !!ev.value;
       c.onchange = () => { ev.value = c.checked; markDirty(); };
       r.appendChild(l); r.appendChild(c); row.appendChild(r);
+    } else if (ev.type === "script") {
+      const ta = document.createElement("textarea");
+      ta.className = "codeBox";
+      ta.placeholder = "$gameVariables.setValue(5, 1);  // runs in game";
+      ta.value = ev.code || "";
+      ta.onchange = () => { ev.code = ta.value.slice(0, 5000); markDirty(); };
+      row.appendChild(ta);
+      const hint = document.createElement("p");
+      hint.className = "hint";
+      hint.textContent = "Runs in game. Names available: $gameVariables, $gameSwitches, $gameActors, $gameParty, $gameMap, $gamePlayer, owner, fm.";
+      row.appendChild(hint);
     }
     const del = document.createElement("button");
     del.textContent = "Remove"; del.className = "danger";
@@ -851,7 +924,7 @@ function wire() {
   };
   $("fileInput").onchange = async (e) => {
     for (const file of e.target.files) {
-      if (!/\.png$/i.test(file.name)) continue;
+      if (!/\.(png|webp)$/i.test(file.name)) continue;
       const url = URL.createObjectURL(file);
       const size = await probeSize(url);
       if (!state.imgFiles.some(f => f.name === file.name)) {
@@ -1009,6 +1082,12 @@ function wire() {
     const f = needFrame();
     if (!f) { toast("Select a frame first.", "err"); return; }
     f.events.push({ type: "switch", id: 1, value: true });
+    markDirty(); renderEvents(); renderTimeline();
+  };
+  $("btnAddScript").onclick = () => {
+    const f = needFrame();
+    if (!f) { toast("Select a frame first.", "err"); return; }
+    f.events.push({ type: "script", code: "" });
     markDirty(); renderEvents(); renderTimeline();
   };
   $("ground").style.display = "block";

@@ -1,0 +1,20 @@
+{
+  "id": "slime_battle",
+  "name": "Slime Battle",
+  "attackPick": "cycle",
+  "states": {
+    "idle": "slime_idle",
+    "appear": "",
+    "attack1": "slime_attack",
+    "attack2": "",
+    "attack3": "",
+    "skill": "",
+    "item": "",
+    "defend": "",
+    "hit": "slime_hit",
+    "evade": "",
+    "die": "slime_die",
+    "victory": ""
+  },
+  "phases": []
+}
